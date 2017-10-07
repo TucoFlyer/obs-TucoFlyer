@@ -1,7 +1,7 @@
 project(obs-TucoFlyer)
 
 set(obs-TucoFlyer_SOURCES
-	obs-tucoflyer.c
+	obs-tucoflyer.cpp
 	flyer-camera-filter.cpp
 	flyer-camera-filter.h)
 
