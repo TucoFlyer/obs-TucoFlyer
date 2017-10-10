@@ -10,14 +10,14 @@
 
 FlyerCameraFilter::FlyerCameraFilter(obs_source_t* source)
     : source(source),
-      yolo(obs_module_file("tiny-yolo.cfg"),
-           obs_module_file("tiny-yolo.weights")),
+//      yolo(obs_module_file("tiny-yolo.cfg"),
+//           obs_module_file("tiny-yolo.weights")),
       image_captured_this_tick(false),
       overlay_texture(0),
       capture_texrender(0),
       capture_staging(0)
 {
-    load_names(obs_module_file("coco.names"));
+//    load_names(obs_module_file("coco.names"));
     memset(&reduced_image, 0, sizeof reduced_image);
 }
 
@@ -67,6 +67,7 @@ void FlyerCameraFilter::update(obs_data_t* settings)
 
 void FlyerCameraFilter::load_names(const char* filename)
 {
+#if 0
     FILE *f = fopen(filename, "r");
     if (!f) {
         perror("Can't open detector labels in FlyerCameraFilter");
@@ -81,6 +82,7 @@ void FlyerCameraFilter::load_names(const char* filename)
         names.push_back(line_buf);
     }
     fclose(f);
+#endif
 }
 
 void FlyerCameraFilter::video_tick(float seconds)
@@ -116,9 +118,12 @@ bool FlyerCameraFilter::capture_reduced_image()
         return false;
     }
 
-    int net_width = yolo.get_net_width();
-    int net_height = yolo.get_net_height();
-    int target_width = obs_source_get_base_width(target);
+//    int net_width = yolo.get_net_width();
+//    int net_height = yolo.get_net_height();
+	int net_width = 300;
+	int net_height = 300;
+	
+	int target_width = obs_source_get_base_width(target);
     int target_height = obs_source_get_base_height(target);
     if (!target_width || !target_height) {
         return false;
@@ -216,14 +221,15 @@ void FlyerCameraFilter::draw_overlay()
 
 //      gs_matrix_push();
 //      gs_matrix_translate3f(x, y, 0);
-        gs_draw_sprite(overlay_texture, 0, 100, 100);
+//        gs_draw_sprite(overlay_texture, 0, 100, 100);
         // gs_matrix_pop();
 
 }
 
 void FlyerCameraFilter::detect_objects()
 {
-    boxes = yolo.detect(reduced_image);
+#if 0
+	boxes = yolo.detect(reduced_image);
 
     for (int n = 0; n < boxes.size(); n++) {
         bbox_t &box = boxes[n];
@@ -233,6 +239,7 @@ void FlyerCameraFilter::detect_objects()
                 n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
         }
     }
+#endif
 }
 
 void FlyerCameraFilter::module_load() {

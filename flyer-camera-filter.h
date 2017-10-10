@@ -20,14 +20,14 @@ public:
 
 private:
     obs_source_t        *source;
-    Detector            yolo;
+    //Detector            yolo;
     bool                image_captured_this_tick;
     gs_texture_t        *overlay_texture;
     gs_texrender_t      *capture_texrender;
     gs_stagesurf_t      *capture_staging;
     image_t             reduced_image;
     std::vector<bbox_t> boxes;
-    std::vector<std::string> names;
+    //std::vector<std::string> names;
     std::string         connection_file_path;
     std::string         images_path;
     BotConnector        bot;

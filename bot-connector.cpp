@@ -4,8 +4,18 @@
 #include <websocketpp/client.hpp>
 #include "bot-connector.h"
 
-typedef websocketpp::client<websocketpp::config::asio_client> client;
+using websocketpp::lib::placeholders::_1;
+using websocketpp::lib::placeholders::_2;
+using websocketpp::lib::bind;
+
+typedef websocketpp::client<websocketpp::config::asio_client> client_t;
 typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
+typedef client_t::connection_ptr connection_ptr;
+typedef websocketpp::connection_hdl connection_hdl;
+
+static void message_handler(client_t *client, connection_hdl connection, message_ptr message) {
+	blog(LOG_INFO, "Websocket message: %s", message->get_payload().c_str());
+}
 
 BotConnector::BotConnector()
 	: thread(threadFunc)
@@ -18,22 +28,23 @@ BotConnector::~BotConnector()
 
 void BotConnector::threadFunc()
 {
-	blog(LOG_INFO, "In the BotConnector thread\n");
+	blog(LOG_INFO, "In the BotConnector thread");
 
-	client c;
+	client_t client;
 	try {
-		c.init_asio();
+		client.init_asio();
+		client.set_message_handler(bind(&message_handler, &client, ::_1, ::_2));
 		websocketpp::lib::error_code connection_err;
-		client::connection_ptr connection = c.get_connection("ws://10.0.0.5:8081", connection_err);
+		client_t::connection_ptr connection = client.get_connection("ws://10.0.0.5:8081", connection_err);
 		if (connection_err) {
-			blog(LOG_ERROR, "WebSocket connection failed, %s\n", ec.message().c_str());
+			blog(LOG_ERROR, "WebSocket connection failed, %s", connection_err.message().c_str());
 		} else {
-			c.connect(con);
-			c.run();
+			client.connect(connection);
+			client.run();
 		}
-	} catch (websocketpp::exception const & e) {
-		blog(LOG_ERROR, "WebSocket exception, %s\n", e.what().c_str());
+	} catch (websocketpp::exception const &exc) {
+		blog(LOG_ERROR, "WebSocket exception, %s", exc.what());
     }
 
-	blog(LOG_INFO, "Leaving this BotConnector thread\n");
+	blog(LOG_INFO, "Leaving this BotConnector thread");
 }
