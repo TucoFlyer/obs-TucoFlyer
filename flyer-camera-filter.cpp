@@ -149,9 +149,15 @@ void FlyerCameraFilter::draw_overlay()
 
 	if (!overlay_texture) {
 		// Placeholder
-		uint8_t pixels[4] = {0x80, 0x80, 0x80, 0x80};
-		uint8_t *ptr = &pixels[0];
-		overlay_texture = gs_texture_create(1, 1, GS_BGRA, 1, (const uint8_t**) &ptr, GS_DYNAMIC);
+
+		uint8_t pixels[] = {
+			0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80,
+		};
+		const uint8_t* tex_data = pixels;
+		overlay_texture = gs_texture_create(2, 2, GS_BGRA, 1, &tex_data, GS_DYNAMIC);
 	}
 
 	// int net_width = yolo.get_net_width();

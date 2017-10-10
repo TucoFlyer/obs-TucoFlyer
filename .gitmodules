@@ -1,0 +1,6 @@
+[submodule "websocketpp"]
+	path = websocketpp
+	url = https://github.com/zaphoyd/websocketpp.git
+[submodule "dlib"]
+	path = dlib
+	url = https://github.com/davisking/dlib.git
