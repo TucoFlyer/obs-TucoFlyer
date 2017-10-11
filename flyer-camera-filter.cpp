@@ -2,11 +2,12 @@
 #include <algorithm>
 
 #define S_CONNECTION_FILE_PATH      "connection_file_path"
-#define S_IMAGES_PATH               "images_path"
+#define S_OVERLAY_TEXTURE_PATH      "overlay_texture_path"
 
-#define T_CONNECTION_FILE_PATH          obs_module_text("Bot-Controller \"connection.txt\" file")
+#define T_CONNECTION_FILE_PATH          obs_module_text("Controller \"connection.txt\" file")
 #define T_CONNECTION_FILE_PATH_FILTER   "Connection info (*.txt);;All files (*.*)"
-#define T_IMAGES_PATH                   obs_module_text("Bot-Controller \"images\" directory")
+#define T_OVERLAY_TEXTURE_PATH          obs_module_text("Controller \"overlay.png\" file")
+#define T_OVERLAY_TEXTURE_PATH_FILTER   "Texture (*.png);;All files (*.*)"
 
 FlyerCameraFilter::FlyerCameraFilter(obs_source_t* source)
     : source(source),
@@ -49,8 +50,8 @@ obs_properties_t* FlyerCameraFilter::get_properties()
     obs_properties_add_path(props, S_CONNECTION_FILE_PATH, T_CONNECTION_FILE_PATH, OBS_PATH_FILE,
         T_CONNECTION_FILE_PATH_FILTER, connection_file_path.c_str());
 	 
-    obs_properties_add_path(props, S_IMAGES_PATH, T_IMAGES_PATH, OBS_PATH_DIRECTORY,
-        NULL, images_path.c_str());
+    obs_properties_add_path(props, S_OVERLAY_TEXTURE_PATH, T_OVERLAY_TEXTURE_PATH, OBS_PATH_FILE,
+        T_OVERLAY_TEXTURE_PATH_FILTER, overlay_texture_path.c_str());
 
     return props;
 }
@@ -58,11 +59,11 @@ obs_properties_t* FlyerCameraFilter::get_properties()
 void FlyerCameraFilter::update(obs_data_t* settings)
 {
     connection_file_path = obs_data_get_string(settings, S_CONNECTION_FILE_PATH);
-    images_path = obs_data_get_string(settings, S_IMAGES_PATH);
+    overlay_texture_path = obs_data_get_string(settings, S_OVERLAY_TEXTURE_PATH);
 
     blog(LOG_INFO, "Update! connection path: '%s' images path: '%s'\n",
         connection_file_path.c_str(),
-        images_path.c_str());
+		overlay_texture_path.c_str());
 }
 
 void FlyerCameraFilter::load_names(const char* filename)

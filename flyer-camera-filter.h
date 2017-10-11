@@ -29,7 +29,7 @@ private:
     std::vector<bbox_t> boxes;
     //std::vector<std::string> names;
     std::string         connection_file_path;
-    std::string         images_path;
+    std::string         overlay_texture_path;
     BotConnector        bot;
 
     void load_names(const char* filename);
