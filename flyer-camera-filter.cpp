@@ -61,9 +61,7 @@ void FlyerCameraFilter::update(obs_data_t* settings)
     connection_file_path = obs_data_get_string(settings, S_CONNECTION_FILE_PATH);
     overlay_texture_path = obs_data_get_string(settings, S_OVERLAY_TEXTURE_PATH);
 
-    blog(LOG_INFO, "Update! connection path: '%s' images path: '%s'\n",
-        connection_file_path.c_str(),
-		overlay_texture_path.c_str());
+    bot.set_connection_file_path(connection_file_path.c_str());
 }
 
 void FlyerCameraFilter::load_names(const char* filename)
