@@ -4,13 +4,14 @@
 #include <websocketpp/uri.hpp>
 #include "bot-connector.h"
 
-#define LOG_PREFIX "BotConnector: "
+#define LOG_PREFIX      "BotConnector: "
 
 using websocketpp::lib::placeholders::_1;
 using websocketpp::lib::placeholders::_2;
 using websocketpp::lib::bind;
 
 BotConnector::BotConnector()
+    : authenticated(false), connected(false)
 {
     thread_client = new client_t;
     thread_client->init_asio();
@@ -49,9 +50,89 @@ std::string BotConnector::get_connection_file_path()
     return copy;
 }
 
-void BotConnector::on_message(connection_hdl conn, message_ptr msg)
+void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
 {
-    blog(LOG_INFO, LOG_PREFIX "Websocket message: %s", msg->get_payload().c_str());
+    connected = true;
+
+    json_error_t err;
+    json_t *obj;
+    json_t *msg_json = json_loads(msg->get_payload().c_str(), 0, &err);
+    if (!msg_json) {
+        blog(LOG_ERROR, LOG_PREFIX "Failed to parse message JSON (%s)", err.text);
+        return;
+    }
+
+    obj = json_object_get(msg_json, "Stream");
+    if (obj && json_is_array(obj)) {
+        size_t index;
+        json_t *ts_msg;
+        json_array_foreach(obj, index, ts_msg) {
+            double timestamp;
+            json_t *msg;
+            if (json_unpack(ts_msg, "{sosF}", "msg", &msg, "timestamp", &timestamp) == 0) {
+                on_stream_message(msg, timestamp);                
+            }
+        }
+    }
+
+    obj = json_object_get(msg_json, "Auth");
+    if (obj) {
+        const char *challenge = 0;
+        if (json_unpack(obj, "{ss}", "challenge", &challenge) == 0) {
+            on_auth_challenge(challenge);
+        }
+    }
+
+    obj = json_object_get(msg_json, "AuthStatus");
+    if (obj && json_is_boolean(obj)) {
+       on_auth_status(json_boolean_value(obj));
+    }
+
+    obj = json_object_get(msg_json, "Error");
+    if (obj) {
+        on_error_message(obj);
+    }
+
+    json_decref(msg_json);
+}
+
+void BotConnector::on_stream_message(json_t *msg, double timestamp)
+{
+    json_t *obj;
+
+    obj = json_object_get(msg, "CameraOverlayScene");
+    if (obj) {
+        char *json = json_dumps(obj, JSON_INDENT(4));
+        blog(LOG_INFO, LOG_PREFIX "scene! ts=%f %s", timestamp, json);
+        free(json);
+    }
+}
+
+void BotConnector::on_auth_challenge(const char *challenge)
+{
+    // to do: authenticate here!
+}
+
+void BotConnector::on_auth_status(bool status)
+{
+    if (status) {
+        blog(LOG_INFO, LOG_PREFIX "authenticated with server");
+    } else {
+        blog(LOG_ERROR, LOG_PREFIX "authentiation FAILED oh no");
+    }
+    authenticated = status;
+}
+
+void BotConnector::on_error_message(json_t *msg)
+{
+    const char *code;
+    json_t *optional_message;
+
+    if (json_unpack(msg, "{ssso}", "code", &code, "message", &optional_message) == 0) {
+        const char *message = json_string_value(optional_message);
+        blog(LOG_ERROR, LOG_PREFIX "Error reported by server, code=%s message=%s",
+            code, message ? message : "(none)");
+    }
 }
 
 void BotConnector::async_reconnect()
@@ -70,6 +151,9 @@ void BotConnector::reconnect_handler()
 
 bool BotConnector::try_reconnect()
 {
+    authenticated = false;
+    connected = false;
+
     frontend_uri = read_connection_frontend_uri();
     if (frontend_uri.empty()) {
         return false;
@@ -82,7 +166,7 @@ bool BotConnector::try_reconnect()
         return false;
     }
 
-    thread_client->set_message_handler(bind(&BotConnector::on_message, this, ::_1, ::_2));
+    thread_client->set_message_handler(bind(&BotConnector::on_socket_message, this, ::_1, ::_2));
     thread_client->set_close_handler(bind(&BotConnector::async_reconnect, this));
     thread_client->set_fail_handler(bind(&BotConnector::async_reconnect, this));
 
@@ -169,20 +253,22 @@ std::string BotConnector::request_websocket_uri(std::string const &frontend_uri)
         return std::string();
     }
 
-    obs_data_t *json = obs_data_create_from_json(json_str.c_str());
+    json_error_t err;
+    json_t *json = json_loads(json_str.c_str(), 0, &err);
     if (!json) {
-        // obs_data already logged a json error
+        blog(LOG_ERROR, LOG_PREFIX "Failed to parse URI JSON blob (%s)", err.text);
         return std::string();
     }
 
-    // This is a JSON blob, but currently only the "uri" key matters
-    const char *uri_cstr = obs_data_get_string(json, "uri");
+    const char *uri_cstr = 0;
     std::string uri;
-    if (uri_cstr) {
+    if (json_unpack(json, "{ss}", "uri", &uri_cstr) == 0) {
         uri = uri_cstr;
+    } else {
+        blog(LOG_ERROR, LOG_PREFIX "URI JSON blob didn't have the expected format");
     }
 
-    obs_data_release(json);
+    json_decref(json);
     return uri;
 }
 

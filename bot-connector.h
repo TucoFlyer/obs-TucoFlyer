@@ -6,6 +6,7 @@
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 #include <curl/curl.h>
+#include <jansson.h>
 #include <thread>
 #include <mutex>
 
@@ -23,6 +24,8 @@ private:
     typedef client_t::connection_ptr connection_ptr;
     typedef websocketpp::connection_hdl connection_hdl;
 
+    bool authenticated;
+    bool connected;
     std::thread thread;
     client_t *thread_client;
     CURL *thread_curl;
@@ -37,10 +40,16 @@ private:
     std::string conn_path;
 
     void thread_func();
-    void on_message(connection_hdl conn, message_ptr msg);
     void async_reconnect();
     void reconnect_handler();
     bool try_reconnect();
+
+    void on_socket_message(connection_hdl conn, message_ptr msg);
+    void on_stream_message(json_t *msg, double timestamp);
+    void on_auth_challenge(const char *challenge);
+    void on_auth_status(bool status);
+    void on_error_message(json_t *msg);
+
     std::string read_connection_frontend_uri();
     std::string request_websocket_uri(std::string const &frontend_uri);
     std::string parse_frontend_auth_key(std::string const &frontend_uri);

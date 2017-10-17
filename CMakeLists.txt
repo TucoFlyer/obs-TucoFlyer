@@ -11,6 +11,13 @@ set(obs-TucoFlyer_SOURCES
 add_library(obs-TucoFlyer MODULE
 	${obs-TucoFlyer_SOURCES})
 
+set(obs-TucoFlyer_LIBRARIES
+	${OBS_JANSSON_IMPORT})
+
+target_include_directories(obs-TucoFlyer PUBLIC
+	${JANSSON_INCLUDE_DIRS}
+	${OBS_JANSSON_INCLUDE_DIRS})
+
 find_package(Libcurl REQUIRED)
 include_directories(${LIBCURL_INCLUDE_DIRS})
 
