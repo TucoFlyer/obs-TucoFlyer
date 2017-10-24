@@ -4,6 +4,12 @@
 #include <jansson.h>
 #include <string>
 
+extern "C" {
+#include <graphics/graphics.h>
+#include <graphics/effect.h>
+#include <graphics/image-file.h>
+}
+
 class OverlayDrawing {
 public:
     OverlayDrawing();
@@ -16,5 +22,5 @@ public:
 
 private:
     std::string texture_path;
-    gs_texture_t *texture;
+    gs_image_file_t texture_img;
 };
