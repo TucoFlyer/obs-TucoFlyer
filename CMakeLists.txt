@@ -11,11 +11,7 @@ set(obs-TucoFlyer_SOURCES
 add_library(obs-TucoFlyer MODULE
 	${obs-TucoFlyer_SOURCES})
 
-set(obs-TucoFlyer_LIBRARIES
-	${OBS_JANSSON_IMPORT})
-
 target_include_directories(obs-TucoFlyer PUBLIC
-	${JANSSON_INCLUDE_DIRS}
 	${OBS_JANSSON_INCLUDE_DIRS})
 
 find_package(Libcurl REQUIRED)
@@ -37,6 +33,7 @@ add_definitions (-D_WEBSOCKETPP_CPP11_TYPE_TRAITS_)
 target_link_libraries(obs-TucoFlyer
 	libobs
 	${LIBCURL_LIBRARIES}
+	${OBS_JANSSON_IMPORT}
 	${PROJECT_SOURCE_DIR}/yolo/yolo_cpp_dll.lib)
 
 install_obs_plugin_with_data(obs-TucoFlyer data)
