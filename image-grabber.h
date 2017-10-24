@@ -1,0 +1,38 @@
+#pragma once
+#include <obs-module.h>
+#include <stdint.h>
+#include <mutex>
+#include <condition_variable>
+
+class ImageGrabber {
+public:
+    ImageGrabber(uint32_t width = 416, uint32_t height = 416, uint32_t frames = 16);
+    ~ImageGrabber();
+
+    void tick();
+    void render(obs_source_t* source);
+
+    struct Frame {
+        uint32_t width, height;
+        unsigned counter;
+        uint32_t *packed_rgbx;
+        float *planar_float;
+    };
+
+    void wait_for_frame(unsigned prev_counter);
+    Frame get_latest_frame();
+
+private:
+    std::mutex latest_counter_mutex;
+    std::condition_variable latest_counter_cond;
+    uint32_t latest_counter;
+    uint32_t num_frames;
+    Frame *frame_fifo;
+    bool tick_flag;
+
+    gs_texrender_t *texrender;
+    gs_stagesurf_t *stagesurface;
+
+    Frame *next_writable_frame();
+    void finish_writing_frame(Frame *frame);
+};

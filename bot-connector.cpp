@@ -11,7 +11,9 @@ using websocketpp::lib::placeholders::_2;
 using websocketpp::lib::bind;
 
 BotConnector::BotConnector()
-    : authenticated(false), connected(false)
+    : authenticated(false),
+      connected(false),
+      latest_camera_overlay_scene(0)
 {
     thread_client = new client_t;
     thread_client->init_asio();
@@ -69,7 +71,7 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
         json_array_foreach(obj, index, ts_msg) {
             double timestamp;
             json_t *msg;
-            if (json_unpack(ts_msg, "{sosF}", "msg", &msg, "timestamp", &timestamp) == 0) {
+            if (json_unpack(ts_msg, "{sosF}", "message", &msg, "timestamp", &timestamp) == 0) {
                 on_stream_message(msg, timestamp);                
             }
         }
@@ -96,15 +98,22 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
     json_decref(msg_json);
 }
 
+json_t *BotConnector::take_camera_overlay_scene()
+{
+    return latest_camera_overlay_scene.exchange(0);
+}
+
 void BotConnector::on_stream_message(json_t *msg, double timestamp)
 {
     json_t *obj;
 
     obj = json_object_get(msg, "CameraOverlayScene");
     if (obj) {
-        char *json = json_dumps(obj, JSON_INDENT(4));
-        blog(LOG_INFO, LOG_PREFIX "scene! ts=%f %s", timestamp, json);
-        free(json);
+        json_incref(obj);
+        json_t *previous = latest_camera_overlay_scene.exchange(obj);
+        if (previous) {
+            json_decref(previous);
+        }
     }
 }
 

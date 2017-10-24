@@ -4,6 +4,12 @@ set(obs-TucoFlyer_SOURCES
 	obs-tucoflyer.cpp
 	flyer-camera-filter.cpp
 	flyer-camera-filter.h
+	flyer-vision.cpp
+	flyer-vision.h
+	image-grabber.cpp
+	image-grabber.h
+	overlay-drawing.cpp
+	overlay-drawing.h
 	bot-connector.cpp
 	bot-connector.h
 	dlib/dlib/all/source.cpp)

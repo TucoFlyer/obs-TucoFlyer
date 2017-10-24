@@ -8,6 +8,7 @@
 #include <curl/curl.h>
 #include <jansson.h>
 #include <thread>
+#include <atomic>
 #include <mutex>
 
 class BotConnector {
@@ -17,6 +18,7 @@ public:
 
     void set_connection_file_path(const char *path);
     std::string get_connection_file_path();
+    json_t *take_camera_overlay_scene();
 
 private:
     typedef websocketpp::client<websocketpp::config::asio_client> client_t;
@@ -38,6 +40,8 @@ private:
     asio::steady_timer *conn_timer;
     std::mutex conn_path_mutex;
     std::string conn_path;
+
+    std::atomic<json_t*> latest_camera_overlay_scene;
 
     void thread_func();
     void async_reconnect();

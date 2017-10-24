@@ -3,15 +3,15 @@
 #include <vector>
 #include <string>
 #include "bot-connector.h"
-#include "yolo/yolo_v2_class.hpp"
+#include "image-grabber.h"
+#include "flyer-vision.h"
+#include "overlay-drawing.h"
 
 class FlyerCameraFilter {
 public:
     FlyerCameraFilter(obs_source_t* source);
-    ~FlyerCameraFilter();
 
     static void module_load();
-    static void get_defaults(obs_data_t* settings);
 
     void video_tick(float seconds);
     void video_render(gs_effect* effect);
@@ -20,21 +20,10 @@ public:
 
 private:
     obs_source_t        *source;
-    //Detector            yolo;
-    bool                image_captured_this_tick;
-    gs_texture_t        *overlay_texture;
-    gs_texrender_t      *capture_texrender;
-    gs_stagesurf_t      *capture_staging;
-    image_t             reduced_image;
-    std::vector<bbox_t> boxes;
-    //std::vector<std::string> names;
+    ImageGrabber        grabber;
+    FlyerVision         vision;
+    OverlayDrawing      overlay;
+    BotConnector        bot;
     std::string         connection_file_path;
     std::string         overlay_texture_path;
-    BotConnector        bot;
-
-    void load_names(const char* filename);
-    bool capture_reduced_image();
-    void update_overlay_texture();
-    void draw_overlay();
-    void detect_objects();
 };
