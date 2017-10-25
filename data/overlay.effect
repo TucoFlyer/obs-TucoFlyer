@@ -1,0 +1,45 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform float2 image_size;
+uniform float2 source_size;
+
+sampler_state def_sampler {
+    Filter   = Linear;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+struct VertInOut {
+    float4 pos : POSITION;
+    float4 color : COLOR;
+    float2 uv  : TEXCOORD0;
+};
+
+VertInOut VSDefault(VertInOut vert_in)
+{
+    VertInOut vert_out;
+
+    float2 src_center = source_size / 2.0;
+    float src_scale = src_center.x;
+    float2 src_coord = src_center + src_scale * vert_in.pos.xy;
+    vert_out.pos = mul(float4(src_coord, 0.0, 1.0), ViewProj);
+
+    vert_out.color = vert_in.color;
+    vert_out.uv  = vert_in.uv / image_size;
+
+    return vert_out;
+}
+
+float4 PSDraw(VertInOut vert_in) : TARGET
+{
+    return image.Sample(def_sampler, vert_in.uv) * vert_in.color;
+}
+
+technique Draw
+{
+    pass
+    {
+        vertex_shader = VSDefault(vert_in);
+        pixel_shader  = PSDraw(vert_in);
+    }
+}

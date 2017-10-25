@@ -57,7 +57,7 @@ void FlyerCameraFilter::video_render(gs_effect* effect)
         json_decref(scene);
     }
 
-    overlay.render();
+    overlay.render(source);
 }
 
 void FlyerCameraFilter::module_load() {

@@ -5,13 +5,13 @@
 FlyerVision::FlyerVision(ImageGrabber *source)
     : request_exit(false)
 {
-    start_yolo(source);
+    // start_yolo(source);
 }
 
 FlyerVision::~FlyerVision()
 {
-    request_exit.store(true);
-    yolo_thread.join();
+    // request_exit.store(true);
+    // yolo_thread.join();
 }
 
 std::vector<std::string> FlyerVision::load_names(const char* filename)
@@ -63,7 +63,6 @@ void FlyerVision::start_yolo(ImageGrabber *source)
 
             boxes = yolo.detect(yolo_img);
 
-#if 0
             for (int n = 0; n < boxes.size(); n++) {
                 bbox_t &box = boxes[n];
                 if (box.obj_id < names.size()) {
@@ -72,7 +71,6 @@ void FlyerVision::start_yolo(ImageGrabber *source)
                         n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
                 }
             }
-#endif
         }
 
         blog(LOG_INFO, "YOLO detector exiting");

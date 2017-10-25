@@ -20,10 +20,12 @@ public:
 
 private:
     obs_source_t        *source;
+
     ImageGrabber        grabber;
     FlyerVision         vision;
     OverlayDrawing      overlay;
     BotConnector        bot;
+
     std::string         connection_file_path;
     std::string         overlay_texture_path;
 };
