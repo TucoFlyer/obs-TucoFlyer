@@ -1,5 +1,6 @@
 #include "flyer-camera-filter.h"
 #include <algorithm>
+#include <functional>
 
 #define S_CONNECTION_FILE_PATH      "connection_file_path"
 #define S_OVERLAY_TEXTURE_PATH      "overlay_texture_path"
@@ -11,7 +12,9 @@
 
 FlyerCameraFilter::FlyerCameraFilter(obs_source_t* source)
     : source(source), vision(&grabber)
-{}
+{
+    bot.on_camera_overlay_scene = std::bind(&OverlayDrawing::update_scene, &overlay, std::placeholders::_1);
+}
 
 obs_properties_t* FlyerCameraFilter::get_properties()
 {
@@ -49,12 +52,6 @@ void FlyerCameraFilter::video_render(gs_effect* effect)
         obs_source_video_render(target);
     } else {
         obs_source_skip_video_filter(source);
-    }
-
-    json_t *scene = bot.take_camera_overlay_scene();
-    if (scene) {
-        overlay.update_scene(scene);
-        json_decref(scene);
     }
 
     overlay.render(source);

@@ -43,12 +43,23 @@ void OverlayDrawing::set_texture_file_path(const char *path)
     texture_path = path;
 }
 
-void OverlayDrawing::update_scene(json_t *obj)
+static void json_vec4(rapidjson::Value const &in, double out[4])
+{
+    for (unsigned i = 0; i < 4; i++) {
+        if (in.IsArray() && in.Size() == 4 && in[i].IsNumber()) {
+            out[i] = in[i].GetDouble();
+        } else {
+            out[i] = 0.0;
+        }
+    }
+}
+
+void OverlayDrawing::update_scene(rapidjson::Value const &scene)
 {
     const unsigned max_vertex_limit = 65000;
     const unsigned verts_per_scene_item = 6;
 
-    unsigned scene_size = json_array_size(obj);
+    unsigned scene_size = scene.Size();
     if (scene_size > max_vertex_limit / verts_per_scene_item) {
         return;
     }
@@ -69,51 +80,50 @@ void OverlayDrawing::update_scene(json_t *obj)
     unsigned vert_i = 0;
 
     for (unsigned scene_i = 0; scene_i < scene_size; scene_i++) {
-        json_t *item = json_array_get(obj, scene_i);
+        rapidjson::Value const &item = scene[scene_i];
 
         double src[4], dest[4], rgba[4];
-        if (json_unpack(item, "{s[FFFF]s[FFFF]s[FFFF]}",
-                "src", &src[0], &src[1], &src[2], &src[3],
-                "dest", &dest[0], &dest[1], &dest[2], &dest[3],
-                "rgba", &rgba[0], &rgba[1], &rgba[2], &rgba[3]) == 0) {
 
-            uint8_t r8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[0] * 255.0)));
-            uint8_t g8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[1] * 255.0)));
-            uint8_t b8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[2] * 255.0)));
-            uint8_t a8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[3] * 255.0)));
-	    uint32_t color = r8 | (g8 << 8) | (b8 << 16) | (a8 << 24);
+        json_vec4(item["src"], src);
+        json_vec4(item["dest"], dest);
+        json_vec4(item["rgba"], rgba);
 
-            vec2 tex_topleft, tex_topright, tex_botleft, tex_botright;
-            vec3 dst_topleft, dst_topright, dst_botleft, dst_botright;
+        uint8_t r8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[0] * 255.0)));
+        uint8_t g8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[1] * 255.0)));
+        uint8_t b8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[2] * 255.0)));
+        uint8_t a8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[3] * 255.0)));
+        uint32_t color = r8 | (g8 << 8) | (b8 << 16) | (a8 << 24);
 
-            vec2_set(&tex_topleft,  (float)src[0],          (float)src[1]);
-            vec2_set(&tex_topright, (float)(src[0]+src[2]), (float)src[1]);
-            vec2_set(&tex_botleft,  (float)src[0],          (float)(src[1]+src[3]));
-            vec2_set(&tex_botright, (float)(src[0]+src[2]), (float)(src[1]+src[3]));
+        vec2 tex_topleft, tex_topright, tex_botleft, tex_botright;
+        vec3 dst_topleft, dst_topright, dst_botleft, dst_botright;
 
-            vec3_set(&dst_topleft,  (float)dest[0],           (float)dest[1], 0.0f);
-            vec3_set(&dst_topright, (float)(dest[0]+dest[2]), (float)dest[1], 0.0f);
-            vec3_set(&dst_botleft,  (float)dest[0],           (float)(dest[1]+dest[3]), 0.0f);
-            vec3_set(&dst_botright, (float)(dest[0]+dest[2]), (float)(dest[1]+dest[3]), 0.0f);
+        vec2_set(&tex_topleft,  (float)src[0],          (float)src[1]);
+        vec2_set(&tex_topright, (float)(src[0]+src[2]), (float)src[1]);
+        vec2_set(&tex_botleft,  (float)src[0],          (float)(src[1]+src[3]));
+        vec2_set(&tex_botright, (float)(src[0]+src[2]), (float)(src[1]+src[3]));
 
-            vec3 *points = &vbd->points[vert_i];
-            uint32_t *colors = &vbd->colors[vert_i];
-            vec2 *texcoord = &((vec2*)vbd->tvarray[0].array)[vert_i];
+        vec3_set(&dst_topleft,  (float)dest[0],           (float)dest[1], 0.0f);
+        vec3_set(&dst_topright, (float)(dest[0]+dest[2]), (float)dest[1], 0.0f);
+        vec3_set(&dst_botleft,  (float)dest[0],           (float)(dest[1]+dest[3]), 0.0f);
+        vec3_set(&dst_botright, (float)(dest[0]+dest[2]), (float)(dest[1]+dest[3]), 0.0f);
 
-            for (unsigned i = 0; i < verts_per_scene_item; i++) {
-                colors[i] = color;
-            }
+        vec3 *points = &vbd->points[vert_i];
+        uint32_t *colors = &vbd->colors[vert_i];
+        vec2 *texcoord = &((vec2*)vbd->tvarray[0].array)[vert_i];
 
-            points[0] = dst_topleft;  texcoord[0] = tex_topleft;
-            points[1] = dst_topright; texcoord[1] = tex_topright;
-            points[2] = dst_botleft;  texcoord[2] = tex_botleft;
-
-            points[3] = dst_topright; texcoord[3] = tex_topright;
-            points[4] = dst_botright; texcoord[4] = tex_botright;
-            points[5] = dst_botleft;  texcoord[5] = tex_botleft;
-
-            vert_i += verts_per_scene_item;
+        for (unsigned i = 0; i < verts_per_scene_item; i++) {
+            colors[i] = color;
         }
+
+        points[0] = dst_topleft;  texcoord[0] = tex_topleft;
+        points[1] = dst_topright; texcoord[1] = tex_topright;
+        points[2] = dst_botleft;  texcoord[2] = tex_botleft;
+
+        points[3] = dst_topright; texcoord[3] = tex_topright;
+        points[4] = dst_botright; texcoord[4] = tex_botright;
+        points[5] = dst_botleft;  texcoord[5] = tex_botleft;
+
+        vert_i += verts_per_scene_item;
     }
 
     obs_leave_graphics();

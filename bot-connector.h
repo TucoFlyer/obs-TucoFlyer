@@ -6,9 +6,9 @@
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 #include <curl/curl.h>
-#include <jansson.h>
+#include <rapidjson/document.h>
+#include <functional>
 #include <thread>
-#include <atomic>
 #include <mutex>
 
 class BotConnector {
@@ -18,7 +18,8 @@ public:
 
     void set_connection_file_path(const char *path);
     std::string get_connection_file_path();
-    json_t *take_camera_overlay_scene();
+
+    std::function<void(rapidjson::Value const&)> on_camera_overlay_scene;
 
 private:
     typedef websocketpp::client<websocketpp::config::asio_client> client_t;
@@ -41,18 +42,16 @@ private:
     std::mutex conn_path_mutex;
     std::string conn_path;
 
-    std::atomic<json_t*> latest_camera_overlay_scene;
-
     void thread_func();
     void async_reconnect();
     void reconnect_handler();
     bool try_reconnect();
 
     void on_socket_message(connection_hdl conn, message_ptr msg);
-    void on_stream_message(json_t *msg, double timestamp);
+    void on_stream_message(rapidjson::Value const &msg, double timestamp);
     void on_auth_challenge(const char *challenge);
     void on_auth_status(bool status);
-    void on_error_message(json_t *msg);
+    void on_error_message(rapidjson::Value const &error);
 
     std::string read_connection_frontend_uri();
     std::string request_websocket_uri(std::string const &frontend_uri);

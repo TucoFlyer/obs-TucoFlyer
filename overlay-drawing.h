@@ -1,8 +1,8 @@
 #pragma once
 
 #include <obs-module.h>
-#include <jansson.h>
 #include <string>
+#include <rapidjson/document.h>
 
 extern "C" {
 #include <graphics/graphics.h>
@@ -16,7 +16,7 @@ public:
     ~OverlayDrawing();
 
     void set_texture_file_path(const char *path);
-    void update_scene(json_t *obj);
+    void update_scene(rapidjson::Value const &scene);
 
     void render(obs_source_t *source);
 
