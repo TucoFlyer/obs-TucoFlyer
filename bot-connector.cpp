@@ -2,8 +2,8 @@
 #include <regex>
 #include <ctype.h>
 #include <websocketpp/uri.hpp>
-#include <rapidjson/document.h>
 #include "bot-connector.h"
+#include "json-util.h"
 
 #define LOG_PREFIX      "BotConnector: "
 
@@ -54,42 +54,48 @@ std::string BotConnector::get_connection_file_path()
 
 void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
 {
-    connected = true;
+    if (!connected) {
+        blog(LOG_INFO, LOG_PREFIX "Connection succeeded, receiving messages");
+        connected = true;
+    }
 
     rapidjson::Document doc;
     doc.ParseInsitu((char*) msg->get_payload().c_str());
+    rapidjson::Value const* obj;
 
-    const rapidjson::Value &stream = doc["Stream"];
-    if (stream.IsArray()) {
-        for (rapidjson::SizeType i = 0; i < stream.Size(); i++) {
-            const rapidjson::Value &ts_msg = stream[i];
-            double timestamp = ts_msg["timestamp"].GetDouble();
-            on_stream_message(ts_msg["message"], timestamp);
+    obj = json_obj(doc, "Stream");
+    if (obj && obj->IsArray()) {
+        for (rapidjson::SizeType i = 0; i < obj->Size(); i++) {
+            const rapidjson::Value &ts_msg = (*obj)[i];
+            double timestamp = json_double(ts_msg, "timestamp");
+            rapidjson::Value const* msg = json_obj(ts_msg, "message");
+            if (msg && msg->IsObject()) {
+                on_stream_message(*msg, timestamp);
+            }
         }
     }
 
-    const rapidjson::Value &auth = doc["Auth"];
-    if (auth.IsObject()) {
-        const char *challenge = auth["challenge"].GetString();
-        on_auth_challenge(challenge);
+    obj = json_obj(doc, "Auth");
+    if (obj && obj->IsObject()) {
+        on_auth_challenge(json_str(*obj, "challenge"));
     }
 
-    const rapidjson::Value &auth_status = doc["AuthStatus"];
-    if (auth_status.IsBool()) {
-       on_auth_status(auth_status.GetBool());
+    obj = json_obj(doc, "AuthStatus");
+    if (obj && obj->IsBool()) {
+       on_auth_status(obj->GetBool());
     }
 
-    const rapidjson::Value &error = doc["Error"];
-    if (error.IsObject()) {
-        on_error_message(error);
+    obj = json_obj(doc, "Error");
+    if (obj && obj->IsObject()) {
+        on_error_message(*obj);
     }
 }
 
 void BotConnector::on_stream_message(rapidjson::Value const &msg, double timestamp)
 {
-    const rapidjson::Value &camera_overlay_scene = msg["CameraOverlayScene"];
-    if (camera_overlay_scene.IsArray()) {
-        on_camera_overlay_scene(camera_overlay_scene);
+    rapidjson::Value const* obj = json_obj(msg, "CameraOverlayScene");
+    if (obj && obj->IsArray()) {
+        on_camera_overlay_scene(*obj);
     }
 }
 
@@ -110,11 +116,8 @@ void BotConnector::on_auth_status(bool status)
 
 void BotConnector::on_error_message(rapidjson::Value const &error)
 {
-    rapidjson::Value const &code = error["code"];
-    rapidjson::Value const &message = error["message"];
     blog(LOG_ERROR, LOG_PREFIX "Error reported by server, code=%s message=%s",
-        code.IsString() ? code.GetString() : "(none)",
-        message.IsString() ? message.GetString() : "(none)");
+        json_str(error, "code"), json_str(error, "message"));
 }
 
 void BotConnector::async_reconnect()
@@ -158,8 +161,9 @@ bool BotConnector::try_reconnect()
         blog(LOG_ERROR, LOG_PREFIX "WebSocket connection error, %s", err.message().c_str());
         return false;
     }
-	
-	thread_client->connect(connection);
+
+    blog(LOG_INFO, LOG_PREFIX "Starting connection to %s", ws_uri.c_str());
+    thread_client->connect(connection);
 }
 
 static void rtrim(char *str)
@@ -215,15 +219,15 @@ std::string BotConnector::request_websocket_uri(std::string const &frontend_uri)
     curl_easy_setopt(thread_curl, CURLOPT_ERRORBUFFER, curl_errbuf);
     curl_errbuf[0] = '\0';
 
-    std::string json_str;
+    std::string json_buffer;
     curl_write_callback json_writer = [] (char *buf, size_t size, size_t num, void *user) -> size_t {
-        std::string &json_str = *static_cast<std::string*>(user);
+        std::string &json_buffer = *static_cast<std::string*>(user);
         size *= num;
-        json_str.append((char*) buf, size);
+        json_buffer.append((char*) buf, size);
         return size;
     };
 
-    curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, &json_str);
+    curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, &json_buffer);
     curl_easy_setopt(thread_curl, CURLOPT_WRITEFUNCTION, json_writer);
     CURLcode res = curl_easy_perform(thread_curl);
     curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, 0);
@@ -236,16 +240,8 @@ std::string BotConnector::request_websocket_uri(std::string const &frontend_uri)
     }
 
     rapidjson::Document doc;
-    doc.ParseInsitu((char*) json_str.c_str());
-
-    rapidjson::Value const &uri_json = doc["uri"];
-    std::string uri;
-
-    if (uri_json.IsString()) {
-        uri = uri_json.GetString();
-    } else {
-        blog(LOG_ERROR, LOG_PREFIX "URI JSON blob didn't have the expected format");
-    }
+    doc.ParseInsitu((char*) json_buffer.c_str());
+    std::string uri = json_str(doc, "uri");
 
     return uri;
 }

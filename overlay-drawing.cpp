@@ -1,12 +1,14 @@
 #include "overlay-drawing.h"
+#include "json-util.h"
 #include <algorithm>
+#include <assert.h>
 
 OverlayDrawing::OverlayDrawing()
     : effect(0),
-      vb(0),
-      vb_size(0)
+      draw_buffer(0)
 {
     memset(&texture_img, 0, sizeof texture_img);
+    memset(&buffers, 0, sizeof buffers);
 
     obs_enter_graphics();
     effect = gs_effect_create_from_file(obs_module_file("overlay.effect"), NULL);
@@ -21,8 +23,11 @@ OverlayDrawing::~OverlayDrawing()
     obs_enter_graphics();
     gs_image_file_free(&texture_img);
     gs_effect_destroy(effect);
-    if (vb) {
-        gs_vertexbuffer_destroy(vb);
+    if (buffers[0].vb) {
+        gs_vertexbuffer_destroy(buffers[0].vb);
+    }
+    if (buffers[1].vb) {
+        gs_vertexbuffer_destroy(buffers[1].vb);
     }
     obs_leave_graphics();
 }
@@ -43,40 +48,36 @@ void OverlayDrawing::set_texture_file_path(const char *path)
     texture_path = path;
 }
 
-static void json_vec4(rapidjson::Value const &in, double out[4])
-{
-    for (unsigned i = 0; i < 4; i++) {
-        if (in.IsArray() && in.Size() == 4 && in[i].IsNumber()) {
-            out[i] = in[i].GetDouble();
-        } else {
-            out[i] = 0.0;
-        }
-    }
-}
-
 void OverlayDrawing::update_scene(rapidjson::Value const &scene)
 {
-    const unsigned max_vertex_limit = 65000;
+    const unsigned max_vertex_limit = 1024 * 1024 * 4;
     const unsigned verts_per_scene_item = 6;
-
     unsigned scene_size = scene.Size();
     if (scene_size > max_vertex_limit / verts_per_scene_item) {
         return;
     }
     unsigned num_vertices_needed = scene_size * verts_per_scene_item;
 
-    obs_enter_graphics();
+    // If we need to reallocate vertex buffers, take the (contentious, slow) graphics lock
+    unsigned next_buffer = (draw_buffer.load() + 1) % num_buffers;
+    if (!buffers[next_buffer].vb || num_vertices_needed > buffers[next_buffer].vbd->num) {
 
-    if (num_vertices_needed > vb_size) {
-        if (vb) {
-            gs_vertexbuffer_destroy(vb);
+        obs_enter_graphics();
+
+        // Round sizes up some to reallocate less frequently
+        uint32_t padded_size = (num_vertices_needed + 1024) & ~511;
+
+        if (buffers[next_buffer].vb) {
+            gs_vertexbuffer_destroy(buffers[next_buffer].vb);
         }
-        vb = create_vb(num_vertices_needed);
-        vb_size = num_vertices_needed;
+        buffers[next_buffer].vbd = create_vbdata(padded_size);
+        buffers[next_buffer].vb = gs_vertexbuffer_create(buffers[next_buffer].vbd, GS_DYNAMIC);
+        buffers[next_buffer].draw_len = 0;
+
+        obs_leave_graphics();
     }
 
-    gs_vb_data *vbd = gs_vertexbuffer_get_data(vb);
-    vb_draw_len = num_vertices_needed;
+    gs_vb_data *vbd = buffers[next_buffer].vbd;
     unsigned vert_i = 0;
 
     for (unsigned scene_i = 0; scene_i < scene_size; scene_i++) {
@@ -84,9 +85,9 @@ void OverlayDrawing::update_scene(rapidjson::Value const &scene)
 
         double src[4], dest[4], rgba[4];
 
-        json_vec4(item["src"], src);
-        json_vec4(item["dest"], dest);
-        json_vec4(item["rgba"], rgba);
+        json_vec4(item, "src", src);
+        json_vec4(item, "dest", dest);
+        json_vec4(item, "rgba", rgba);
 
         uint8_t r8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[0] * 255.0)));
         uint8_t g8 = (uint8_t)std::max(0.0, std::min(255.0, round(rgba[1] * 255.0)));
@@ -126,7 +127,10 @@ void OverlayDrawing::update_scene(rapidjson::Value const &scene)
         vert_i += verts_per_scene_item;
     }
 
-    obs_leave_graphics();
+    assert(vert_i == num_vertices_needed);
+    buffers[next_buffer].draw_len = num_vertices_needed;
+    assert(next_scene_draw_len <= next_scene->num);
+    draw_buffer.store(next_buffer);
 }
 
 void OverlayDrawing::render(obs_source_t *source)
@@ -134,7 +138,11 @@ void OverlayDrawing::render(obs_source_t *source)
     if (!texture_img.texture) {
         return;
     }
-    if (!vb || !vb_draw_len) {
+
+    uint32_t buffer_index = draw_buffer.load();
+    gs_vertbuffer_t *vb = buffers[buffer_index].vb;
+    uint32_t draw_len = buffers[buffer_index].draw_len;
+    if (!vb || !draw_len) {
         return;
     }
 
@@ -164,7 +172,7 @@ void OverlayDrawing::render(obs_source_t *source)
         obs_source_get_height(source));
     gs_effect_set_vec2(source_size_param, &source_size);
 
-    gs_draw(GS_TRIS, 0, vb_draw_len);
+    gs_draw(GS_TRIS, 0, draw_len);
 
     gs_technique_end_pass(tech);
     gs_technique_end(tech);
@@ -172,18 +180,15 @@ void OverlayDrawing::render(obs_source_t *source)
     gs_blend_state_pop();
 }
 
-gs_vertbuffer_t *OverlayDrawing::create_vb(unsigned new_size)
+gs_vb_data *OverlayDrawing::create_vbdata(unsigned new_size)
 {
     gs_vb_data *vbd = gs_vbdata_create();
-
     vbd->num = new_size;
     vbd->num_tex = 1;
-
     vbd->points = (vec3*) bzalloc(sizeof(vec3) * new_size);
     vbd->colors = (uint32_t*) bzalloc(sizeof(uint32_t) * new_size);
     vbd->tvarray = (gs_tvertarray*) bzalloc(sizeof(gs_tvertarray) * vbd->num_tex);
     vbd->tvarray[0].width = 2;
     vbd->tvarray[0].array = bzalloc(sizeof(vec2) * new_size);
-
-    return gs_vertexbuffer_create(vbd, GS_DYNAMIC);
+    return vbd;
 }

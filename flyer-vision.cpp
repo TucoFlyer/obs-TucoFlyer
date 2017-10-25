@@ -5,13 +5,13 @@
 FlyerVision::FlyerVision(ImageGrabber *source)
     : request_exit(false)
 {
-    // start_yolo(source);
+    //start_yolo(source);
 }
 
 FlyerVision::~FlyerVision()
 {
-    // request_exit.store(true);
-    // yolo_thread.join();
+    //request_exit.store(true);
+    //yolo_thread.join();
 }
 
 std::vector<std::string> FlyerVision::load_names(const char* filename)
@@ -52,6 +52,8 @@ void FlyerVision::start_yolo(ImageGrabber *source)
         
         while (!request_exit.load()) {
         
+            os_sleep_ms(100);   /// TEMPORARY
+
             source->wait_for_frame(frame.counter);
             frame = source->get_latest_frame();
 
