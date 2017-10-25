@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <assert.h>
 
+#define LOG_PREFIX      "OverlayDrawing: "
+
 OverlayDrawing::OverlayDrawing()
     : effect(0),
       draw_buffer(0)
@@ -66,6 +68,7 @@ void OverlayDrawing::update_scene(rapidjson::Value const &scene)
 
         // Round sizes up some to reallocate less frequently
         uint32_t padded_size = (num_vertices_needed + 1024) & ~511;
+        blog(LOG_INFO, LOG_PREFIX "Resizing VB#%d to %d", next_buffer, padded_size);
 
         if (buffers[next_buffer].vb) {
             gs_vertexbuffer_destroy(buffers[next_buffer].vb);
