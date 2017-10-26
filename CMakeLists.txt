@@ -38,7 +38,12 @@ add_definitions (-D_WEBSOCKETPP_CPP11_TYPE_TRAITS_)
 
 target_link_libraries(obs-TucoFlyer
 	libobs
+	${OBS_JANSSON_IMPORT}
 	${LIBCURL_LIBRARIES}
 	${PROJECT_SOURCE_DIR}/yolo/yolo_cpp_dll.lib)
+
+if(OBS_JANSSON_INCLUDE_DIRS)
+	target_include_directories(obs-TucoFlyer PRIVATE ${OBS_JANSSON_INCLUDE_DIRS})
+endif()
 
 install_obs_plugin_with_data(obs-TucoFlyer data)
