@@ -5,13 +5,13 @@
 FlyerVision::FlyerVision(ImageGrabber *source)
     : request_exit(false)
 {
-    //start_yolo(source);
+    start_yolo(source);
 }
 
 FlyerVision::~FlyerVision()
 {
-    //request_exit.store(true);
-    //yolo_thread.join();
+    request_exit.store(true);
+    yolo_thread.join();
 }
 
 std::vector<std::string> FlyerVision::load_names(const char* filename)
@@ -52,8 +52,6 @@ void FlyerVision::start_yolo(ImageGrabber *source)
         
         while (!request_exit.load()) {
         
-            os_sleep_ms(100);   /// TEMPORARY
-
             source->wait_for_frame(frame.counter);
             frame = source->get_latest_frame();
 
@@ -69,8 +67,8 @@ void FlyerVision::start_yolo(ImageGrabber *source)
                 bbox_t &box = boxes[n];
                 if (box.obj_id < names.size()) {
                     const char* name = names[box.obj_id].c_str();
-                    blog(LOG_INFO, "[%d] box (%d,%d,%d,%d) prob %f obj %s id %d\n",
-                        n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
+  //                  blog(LOG_INFO, "[%d] box (%d,%d,%d,%d) prob %f obj %s id %d\n",
+  //                      n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
                 }
             }
         }

@@ -2,14 +2,18 @@
 #include <regex>
 #include <ctype.h>
 #include <websocketpp/uri.hpp>
+#include <rapidjson/writer.h>
 #include "bot-connector.h"
 #include "json-util.h"
 
 #define LOG_PREFIX      "BotConnector: "
 
-using websocketpp::lib::placeholders::_1;
-using websocketpp::lib::placeholders::_2;
-using websocketpp::lib::bind;
+using namespace websocketpp;
+using namespace rapidjson;
+
+using lib::placeholders::_1;
+using lib::placeholders::_2;
+using lib::bind;
 
 BotConnector::BotConnector()
     : authenticated(false),
@@ -52,6 +56,34 @@ std::string BotConnector::get_connection_file_path()
     return copy;
 }
 
+void BotConnector::send(StringBuffer* buffer)
+{
+    thread_client->get_io_service().dispatch([=] () {
+        local_send(buffer);
+    });
+}
+
+void BotConnector::local_send(StringBuffer* buffer)
+{
+    if (active_conn.lock()) {
+        thread_client->send(active_conn,
+            buffer->GetString(), buffer->GetSize(),
+            frame::opcode::TEXT);
+    }
+    delete buffer;
+}
+
+void BotConnector::on_socket_open(connection_hdl conn)
+{
+    active_conn = conn;
+}
+
+void BotConnector::on_socket_close(connection_hdl conn)
+{
+    active_conn = connection_hdl();
+    async_reconnect();
+}
+
 void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
 {
     if (!connected) {
@@ -59,16 +91,16 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
         connected = true;
     }
 
-    rapidjson::Document doc;
+    Document doc;
     doc.ParseInsitu((char*) msg->get_payload().c_str());
-    rapidjson::Value const* obj;
+    Value const* obj;
 
     obj = json_obj(doc, "Stream");
     if (obj && obj->IsArray()) {
-        for (rapidjson::SizeType i = 0; i < obj->Size(); i++) {
-            const rapidjson::Value &ts_msg = (*obj)[i];
+        for (SizeType i = 0; i < obj->Size(); i++) {
+            const Value &ts_msg = (*obj)[i];
             double timestamp = json_double(ts_msg, "timestamp");
-            rapidjson::Value const* msg = json_obj(ts_msg, "message");
+            Value const* msg = json_obj(ts_msg, "message");
             if (msg && msg->IsObject()) {
                 on_stream_message(*msg, timestamp);
             }
@@ -91,9 +123,9 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
     }
 }
 
-void BotConnector::on_stream_message(rapidjson::Value const &msg, double timestamp)
+void BotConnector::on_stream_message(Value const &msg, double timestamp)
 {
-    rapidjson::Value const* obj = json_obj(msg, "CameraOverlayScene");
+    Value const* obj = json_obj(msg, "CameraOverlayScene");
     if (obj && obj->IsArray()) {
         on_camera_overlay_scene(*obj);
     }
@@ -102,6 +134,20 @@ void BotConnector::on_stream_message(rapidjson::Value const &msg, double timesta
 void BotConnector::on_auth_challenge(const char *challenge)
 {
     // to do: authenticate here!
+    Value digest("blahhhh");
+
+    Document d;
+    d.SetObject();
+    Value response;
+    response.SetObject();
+    response.AddMember("digest", digest, d.GetAllocator());
+    d.AddMember("AuthResponse", response, d.GetAllocator());
+
+    StringBuffer *buffer = new StringBuffer();
+    Writer<StringBuffer> writer(*buffer);
+    d.Accept(writer);
+
+    local_send(buffer);
 }
 
 void BotConnector::on_auth_status(bool status)
@@ -114,7 +160,7 @@ void BotConnector::on_auth_status(bool status)
     authenticated = status;
 }
 
-void BotConnector::on_error_message(rapidjson::Value const &error)
+void BotConnector::on_error_message(Value const &error)
 {
     blog(LOG_ERROR, LOG_PREFIX "Error reported by server, code=%s message=%s",
         json_str(error, "code"), json_str(error, "message"));
@@ -152,10 +198,11 @@ bool BotConnector::try_reconnect()
     }
 
     thread_client->set_message_handler(bind(&BotConnector::on_socket_message, this, ::_1, ::_2));
-    thread_client->set_close_handler(bind(&BotConnector::async_reconnect, this));
+    thread_client->set_open_handler(bind(&BotConnector::on_socket_open, this, ::_1));
+    thread_client->set_close_handler(bind(&BotConnector::on_socket_close, this, ::_1));
     thread_client->set_fail_handler(bind(&BotConnector::async_reconnect, this));
 
-    websocketpp::lib::error_code err;
+    lib::error_code err;
     client_t::connection_ptr connection = thread_client->get_connection(ws_uri, err);
     if (err) {
         blog(LOG_ERROR, LOG_PREFIX "WebSocket connection error, %s", err.message().c_str());
@@ -206,13 +253,13 @@ std::string BotConnector::read_connection_frontend_uri()
 
 std::string BotConnector::request_websocket_uri(std::string const &frontend_uri)
 {
-    websocketpp::uri fe(frontend_uri);
+    uri fe(frontend_uri);
     if (!fe.get_valid()) {
         blog(LOG_ERROR, LOG_PREFIX "No valid URI for Bot-Controller HTTP frontend");
         return std::string();
     }
 
-    websocketpp::uri ep(fe.get_scheme(), fe.get_host(), fe.get_port(), "/ws");
+    uri ep(fe.get_scheme(), fe.get_host(), fe.get_port(), "/ws");
     std::string endpoint_url = ep.str();
 
     curl_easy_setopt(thread_curl, CURLOPT_URL, endpoint_url.c_str());
@@ -239,7 +286,7 @@ std::string BotConnector::request_websocket_uri(std::string const &frontend_uri)
         return std::string();
     }
 
-    rapidjson::Document doc;
+    Document doc;
     doc.ParseInsitu((char*) json_buffer.c_str());
     std::string uri = json_str(doc, "uri");
 
@@ -251,7 +298,7 @@ std::string BotConnector::parse_frontend_auth_key(std::string const &frontend_ur
     // Look for "k=" query parameter in list of parameters within URI fragment
     std::regex re("#[^?]*\\?(?:(?!k=)[^&]*&)*k=([^&]+)");
 
-    websocketpp::uri frontend(frontend_uri);
+    uri frontend(frontend_uri);
     std::string result;
     std::smatch match;
 
@@ -266,7 +313,7 @@ void BotConnector::thread_func()
 {
     try {
         thread_client->run();
-    } catch (websocketpp::exception const &exc) {
+    } catch (exception const &exc) {
         blog(LOG_ERROR, "WebSocket exception, %s", exc.what());
     }
 }

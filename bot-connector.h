@@ -7,6 +7,7 @@
 #include <websocketpp/client.hpp>
 #include <curl/curl.h>
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
 #include <functional>
 #include <thread>
 #include <mutex>
@@ -18,6 +19,8 @@ public:
 
     void set_connection_file_path(const char *path);
     std::string get_connection_file_path();
+
+    void send(rapidjson::StringBuffer* buffer);
 
     std::function<void(rapidjson::Value const&)> on_camera_overlay_scene;
 
@@ -42,11 +45,16 @@ private:
     std::mutex conn_path_mutex;
     std::string conn_path;
 
+    connection_hdl active_conn;
+    void local_send(rapidjson::StringBuffer* buffer);
+
     void thread_func();
     void async_reconnect();
     void reconnect_handler();
     bool try_reconnect();
 
+    void on_socket_open(connection_hdl conn);
+    void on_socket_close(connection_hdl conn);
     void on_socket_message(connection_hdl conn, message_ptr msg);
     void on_stream_message(rapidjson::Value const &msg, double timestamp);
     void on_auth_challenge(const char *challenge);

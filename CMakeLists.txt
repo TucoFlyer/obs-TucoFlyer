@@ -18,6 +18,8 @@ set(obs-TucoFlyer_SOURCES
 add_library(obs-TucoFlyer MODULE
 	${obs-TucoFlyer_SOURCES})
 
+add_subdirectory(cryptopp)
+
 find_package(Libcurl REQUIRED)
 include_directories(${LIBCURL_INCLUDE_DIRS})
 
@@ -38,6 +40,7 @@ add_definitions (-D_WEBSOCKETPP_CPP11_TYPE_TRAITS_)
 
 target_link_libraries(obs-TucoFlyer
 	libobs
+	cryptopp
 	${LIBCURL_LIBRARIES}
 	${PROJECT_SOURCE_DIR}/yolo/yolo_cpp_dll.lib)
 

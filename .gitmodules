@@ -10,3 +10,6 @@
 [submodule "rapidjson"]
 	path = rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "cryptopp"]
+	path = cryptopp
+	url = https://github.com/TucoFlyer/cryptopp-cmake.git
