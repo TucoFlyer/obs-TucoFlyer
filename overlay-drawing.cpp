@@ -23,14 +23,16 @@ OverlayDrawing::OverlayDrawing()
 OverlayDrawing::~OverlayDrawing()
 {
     obs_enter_graphics();
+
     gs_image_file_free(&texture_img);
     gs_effect_destroy(effect);
-    if (buffers[0].vb) {
-        gs_vertexbuffer_destroy(buffers[0].vb);
+
+    for (uint32_t i = 0; i < num_buffers; i++) {
+        if (buffers[i].vb) {
+            gs_vertexbuffer_destroy(buffers[i].vb);
+        }
     }
-    if (buffers[1].vb) {
-        gs_vertexbuffer_destroy(buffers[1].vb);
-    }
+    
     obs_leave_graphics();
 }
 
