@@ -77,7 +77,7 @@ void FlyerVision::start_yolo()
             double center_x = frame.width / 2.0;
             double center_y = frame.height / 2.0;
 
-            boxes = yolo.detect(yolo_img);
+            boxes = yolo.detect(yolo_img, 0.1);
             if (bot->is_authenticated()) {
                 Document d;
                 d.SetObject();
