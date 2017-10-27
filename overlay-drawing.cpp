@@ -134,7 +134,7 @@ void OverlayDrawing::update_scene(rapidjson::Value const &scene)
 
     assert(vert_i == num_vertices_needed);
     buffers[next_buffer].draw_len = num_vertices_needed;
-    assert(next_scene_draw_len <= next_scene->num);
+    assert(buffers[next_buffer].draw_len <= buffers[next_buffer].vbd->num);
     draw_buffer.store(next_buffer);
 }
 

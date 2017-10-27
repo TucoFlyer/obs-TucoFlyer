@@ -67,6 +67,11 @@ void BotConnector::send(StringBuffer* buffer)
     });
 }
 
+bool BotConnector::is_authenticated()
+{
+    return authenticated;
+}
+
 void BotConnector::local_send(StringBuffer* buffer)
 {
     if (active_conn.lock()) {
@@ -144,7 +149,11 @@ void BotConnector::on_auth_challenge(const char *challenge)
     StringSource s(challenge, true, 
         new HashFilter(hmac,
             new Base64Encoder(
-                new StringSink(digest_str))));
+                new StringSink(digest_str),
+		false // insertLineBreaks
+	    )
+	)
+    );
     Value digest(StringRef(digest_str.c_str(), digest_str.size()));
 
     d.SetObject();

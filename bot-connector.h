@@ -21,6 +21,7 @@ public:
     std::string get_connection_file_path();
 
     void send(rapidjson::StringBuffer* buffer);
+    bool is_authenticated();
 
     std::function<void(rapidjson::Value const&)> on_camera_overlay_scene;
 

@@ -10,6 +10,8 @@ ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
 {
     frame_fifo = new Frame[num_frames];
     for (uint32_t i = 0; i < num_frames; i++) {
+        frame_fifo[i].source_width = 0;
+        frame_fifo[i].source_height = 0;
         frame_fifo[i].width = width;
         frame_fifo[i].height = height;
         frame_fifo[i].packed_rgbx = new uint32_t[width * height];
@@ -111,6 +113,10 @@ void ImageGrabber::render(obs_source_t *source)
 
         gs_stagesurface_unmap(stagesurface);
     }
+
+    // Save our source's size, for coordinate transformation after running computer vision
+    frame->source_width = obs_source_get_base_width(source);
+    frame->source_height = obs_source_get_base_height(source);
 
     finish_writing_frame(frame);
 }

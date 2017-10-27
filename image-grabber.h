@@ -6,7 +6,7 @@
 
 class ImageGrabber {
 public:
-    ImageGrabber(uint32_t width = 416, uint32_t height = 416, uint32_t frames = 16);
+    ImageGrabber(uint32_t width = 608, uint32_t height = 608, uint32_t frames = 16);
     ~ImageGrabber();
 
     void tick();
@@ -14,6 +14,7 @@ public:
 
     struct Frame {
         uint32_t width, height;
+        uint32_t source_width, source_height;
         unsigned counter;
         uint32_t *packed_rgbx;
         float *planar_float;

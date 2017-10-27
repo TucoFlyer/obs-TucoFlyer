@@ -50,8 +50,8 @@ void FlyerVision::start_yolo()
         blog(LOG_INFO, "YOLO detector starting up...");
 
         std::vector<std::string> names = load_names(obs_module_file("coco.names"));
-        Detector yolo(obs_module_file("tiny-yolo.cfg"),
-                      obs_module_file("tiny-yolo.weights"));
+        Detector yolo(obs_module_file("yolo.cfg"),
+                      obs_module_file("yolo.weights"));
 
         blog(LOG_INFO, "YOLO detector running");
         
@@ -66,24 +66,56 @@ void FlyerVision::start_yolo()
             yolo_img.c = 3;
             yolo_img.data = frame.planar_float;
 
+            // Input coordinate system is relative to (squished) image provided to neural net;
+            // output coordinate system should match the overlay rendering, with [0,0] in the
+            // center, aspect correct, and horizontal extents from [-1,+1].
+
+            double x_scale = 2.0 / frame.width;
+            double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
+            double y_scale = x_scale * aspect;
+
+            double center_x = frame.width / 2.0;
+            double center_y = frame.height / 2.0;
+
             boxes = yolo.detect(yolo_img);
+            if (bot->is_authenticated()) {
+                Document d;
+                d.SetObject();
+                Value arr;
+                arr.SetArray();
 
-            Document d;
-            d.SetObject();
-            d.AddMember("Fluff", "yep", d.GetAllocator());
+                for (int n = 0; n < boxes.size(); n++) {
+                    bbox_t &box = boxes[n];
 
-            StringBuffer *buffer = new StringBuffer();
-            Writer<StringBuffer> writer(*buffer);
-            d.Accept(writer);
-            bot->send(buffer);
+                    const char *label = "";
+                    if (box.obj_id < names.size()) {
+                        label = names[box.obj_id].c_str();
+                    }
 
-            for (int n = 0; n < boxes.size(); n++) {
-                bbox_t &box = boxes[n];
-                if (box.obj_id < names.size()) {
-                    const char* name = names[box.obj_id].c_str();
-                       blog(LOG_INFO, "[%d] box (%d,%d,%d,%d) prob %f obj %s id %d\n",
-                       n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
+                    Value rect;
+                    rect.SetArray();
+                    rect.PushBack(Value(x_scale * (box.x - center_x)), d.GetAllocator());
+                    rect.PushBack(Value(y_scale * (box.y - center_y)), d.GetAllocator());
+                    rect.PushBack(Value(x_scale * box.w), d.GetAllocator());
+                    rect.PushBack(Value(y_scale * box.h), d.GetAllocator());
+
+                    Value obj;
+                    obj.SetObject();
+                    obj.AddMember("rect", rect, d.GetAllocator());
+                    obj.AddMember("prob", Value(box.prob), d.GetAllocator());
+                    obj.AddMember("label", StringRef(label), d.GetAllocator());
+                    arr.PushBack(obj, d.GetAllocator());
                 }
+
+                Value cmd;
+                cmd.SetObject();
+                cmd.AddMember("CameraObjectDetection", arr, d.GetAllocator());
+                d.AddMember("Command", cmd, d.GetAllocator());
+
+                StringBuffer *buffer = new StringBuffer();
+                Writer<StringBuffer> writer(*buffer);
+                d.Accept(writer);
+                bot->send(buffer);
             }
         }
 

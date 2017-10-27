@@ -1,7 +1,7 @@
 #pragma once 
 #include <rapidjson/document.h>
 
-static const char *json_str(rapidjson::Value const &obj, const char *member, const char *defaultValue = "")
+static inline const char *json_str(rapidjson::Value const &obj, const char *member, const char *defaultValue = "")
 {
     if (obj.IsObject()) {
         rapidjson::Value::ConstMemberIterator m = obj.FindMember(member);
@@ -12,7 +12,7 @@ static const char *json_str(rapidjson::Value const &obj, const char *member, con
     return defaultValue;
 }
 
-static double json_double(rapidjson::Value const &obj, const char *member, double defaultValue = 0.0)
+static inline double json_double(rapidjson::Value const &obj, const char *member, double defaultValue = 0.0)
 {
     if (obj.IsObject()) {
         rapidjson::Value::ConstMemberIterator m = obj.FindMember(member);
@@ -23,7 +23,7 @@ static double json_double(rapidjson::Value const &obj, const char *member, doubl
     return defaultValue;
 }
 
-static void json_vec4(rapidjson::Value const &obj, const char *member, double out[4], double defaultValue = 0.0)
+static inline void json_vec4(rapidjson::Value const &obj, const char *member, double out[4], double defaultValue = 0.0)
 {
     if (obj.IsObject()) {
         rapidjson::Value::ConstMemberIterator m = obj.FindMember(member);
@@ -39,7 +39,7 @@ static void json_vec4(rapidjson::Value const &obj, const char *member, double ou
     }
 }
 
-static rapidjson::Value const* json_obj(rapidjson::Value const &obj, const char *member)
+static inline rapidjson::Value const* json_obj(rapidjson::Value const &obj, const char *member)
 {
     if (obj.IsObject()) {
         rapidjson::Value::ConstMemberIterator m = obj.FindMember(member);
