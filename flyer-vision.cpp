@@ -1,11 +1,16 @@
 #include "flyer-vision.h"
 #include "yolo/yolo_v2_class.hpp"
 #include "util/platform.h"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 
-FlyerVision::FlyerVision(ImageGrabber *source)
-    : request_exit(false)
+using namespace rapidjson;
+
+FlyerVision::FlyerVision(ImageGrabber *source, BotConnector *bot)
+    : request_exit(false), source(source), bot(bot)
 {
-    start_yolo(source);
+    start_yolo();
 }
 
 FlyerVision::~FlyerVision()
@@ -34,7 +39,7 @@ std::vector<std::string> FlyerVision::load_names(const char* filename)
     return names;
 }
 
-void FlyerVision::start_yolo(ImageGrabber *source)
+void FlyerVision::start_yolo()
 {
     yolo_thread = std::thread([=] () {
 
@@ -63,12 +68,21 @@ void FlyerVision::start_yolo(ImageGrabber *source)
 
             boxes = yolo.detect(yolo_img);
 
+            Document d;
+            d.SetObject();
+            d.AddMember("Fluff", "yep", d.GetAllocator());
+
+            StringBuffer *buffer = new StringBuffer();
+            Writer<StringBuffer> writer(*buffer);
+            d.Accept(writer);
+            bot->send(buffer);
+
             for (int n = 0; n < boxes.size(); n++) {
                 bbox_t &box = boxes[n];
                 if (box.obj_id < names.size()) {
                     const char* name = names[box.obj_id].c_str();
-  //                  blog(LOG_INFO, "[%d] box (%d,%d,%d,%d) prob %f obj %s id %d\n",
-  //                      n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
+                       blog(LOG_INFO, "[%d] box (%d,%d,%d,%d) prob %f obj %s id %d\n",
+                       n, box.x, box.y, box.w, box.h, box.prob, name, box.track_id);
                 }
             }
         }

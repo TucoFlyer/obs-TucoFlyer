@@ -3,11 +3,15 @@
 #include <ctype.h>
 #include <websocketpp/uri.hpp>
 #include <rapidjson/writer.h>
+#include <hmac.h>
+#include <sha.h>
+#include <base64.h>
 #include "bot-connector.h"
 #include "json-util.h"
 
 #define LOG_PREFIX      "BotConnector: "
 
+using namespace CryptoPP;
 using namespace websocketpp;
 using namespace rapidjson;
 
@@ -133,15 +137,21 @@ void BotConnector::on_stream_message(Value const &msg, double timestamp)
 
 void BotConnector::on_auth_challenge(const char *challenge)
 {
-    // to do: authenticate here!
-    Value digest("blahhhh");
-
     Document d;
+
+    HMAC<SHA512> hmac((const byte*)auth_key.c_str(), auth_key.size());
+    std::string digest_str;
+    StringSource s(challenge, true, 
+        new HashFilter(hmac,
+            new Base64Encoder(
+                new StringSink(digest_str))));
+    Value digest(StringRef(digest_str.c_str(), digest_str.size()));
+
     d.SetObject();
-    Value response;
-    response.SetObject();
-    response.AddMember("digest", digest, d.GetAllocator());
-    d.AddMember("AuthResponse", response, d.GetAllocator());
+    Value auth;
+    auth.SetObject();
+    auth.AddMember("digest", digest, d.GetAllocator());
+    d.AddMember("Auth", auth, d.GetAllocator());
 
     StringBuffer *buffer = new StringBuffer();
     Writer<StringBuffer> writer(*buffer);

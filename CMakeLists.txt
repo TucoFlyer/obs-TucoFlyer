@@ -19,6 +19,7 @@ add_library(obs-TucoFlyer MODULE
 	${obs-TucoFlyer_SOURCES})
 
 add_subdirectory(cryptopp)
+include_directories(cryptopp)
 
 find_package(Libcurl REQUIRED)
 include_directories(${LIBCURL_INCLUDE_DIRS})

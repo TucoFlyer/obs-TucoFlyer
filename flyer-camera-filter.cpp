@@ -11,7 +11,8 @@
 #define T_OVERLAY_TEXTURE_PATH_FILTER   "Texture (*.png);;All files (*.*)"
 
 FlyerCameraFilter::FlyerCameraFilter(obs_source_t* source)
-    : source(source), vision(&grabber)
+    : source(source),
+      vision(&grabber, &bot)
 {
     bot.on_camera_overlay_scene = std::bind(&OverlayDrawing::update_scene, &overlay, std::placeholders::_1);
 }
