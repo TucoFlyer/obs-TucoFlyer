@@ -111,9 +111,14 @@ void FlyerVision::start_yolo()
                     arr.PushBack(obj, d.GetAllocator());
                 }
 
+                Value scene;
+                scene.SetObject();
+                scene.AddMember("objects", arr, d.GetAllocator());
+                scene.AddMember("frame", Value(frame.counter), d.GetAllocator());
+
                 Value cmd;
                 cmd.SetObject();
-                cmd.AddMember("CameraObjectDetection", arr, d.GetAllocator());
+                cmd.AddMember("CameraObjectDetection", scene, d.GetAllocator());
                 d.AddMember("Command", cmd, d.GetAllocator());
 
                 StringBuffer *buffer = new StringBuffer();
@@ -135,11 +140,10 @@ void FlyerVision::start_tracker()
         ImageGrabber::Frame frame;
         frame.counter = 0;
 
-        dlib::correlation_tracker tracker;
         bool rect_is_empty = true;
+        dlib::correlation_tracker tracker(5, 4);
 
-        blog(LOG_INFO, "Object tracker thread running");
-        
+        blog(LOG_INFO, "Object tracker thread running");    
         while (!request_exit.load()) {
         
             source->wait_for_frame(frame.counter);
@@ -178,6 +182,7 @@ void FlyerVision::start_tracker()
                 Value obj;
                 obj.SetObject();
                 obj.AddMember("rect", arr, d.GetAllocator());
+                obj.AddMember("frame", frame.counter, d.GetAllocator());
                 obj.AddMember("psr", Value(psr), d.GetAllocator());
 
                 Value cmd;

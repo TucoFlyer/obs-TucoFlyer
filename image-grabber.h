@@ -19,7 +19,7 @@ public:
         unsigned counter;
 
         float *planar_float;
-        dlib::array2d<dlib::rgb_pixel> *dlib_img;
+        dlib::array2d<unsigned char> *dlib_img;
     };
 
     void wait_for_frame(unsigned prev_counter);

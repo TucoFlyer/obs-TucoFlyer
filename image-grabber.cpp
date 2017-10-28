@@ -15,7 +15,7 @@ ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
         frame_fifo[i].source_height = 0;
         frame_fifo[i].width = width;
         frame_fifo[i].height = height;
-        frame_fifo[i].dlib_img = new dlib::array2d<dlib::rgb_pixel>(height, width);
+        frame_fifo[i].dlib_img = new dlib::array2d<unsigned char>(height, width);
         frame_fifo[i].planar_float = new float[width * height * 3];
     }
 }
