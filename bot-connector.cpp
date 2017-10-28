@@ -132,7 +132,7 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
 
     obj = json_obj(doc, "AuthStatus");
     if (obj && obj->IsBool()) {
-       on_auth_status(obj->GetBool());
+        on_auth_status(obj->GetBool());
     }
 
     obj = json_obj(doc, "Error");
@@ -200,12 +200,16 @@ void BotConnector::on_auth_challenge(const char *challenge)
 
 void BotConnector::on_auth_status(bool status)
 {
+    authenticated = status;
     if (status) {
         blog(LOG_INFO, LOG_PREFIX "authenticated with server");
     } else {
-        blog(LOG_ERROR, LOG_PREFIX "authentiation FAILED oh no");
+        blog(LOG_ERROR, LOG_PREFIX "authentiation FAILED, closing connection");
+        if (active_conn.lock()) {
+            std::string reason = "authentication failed";
+            thread_client->close(active_conn, close::status::protocol_error, reason);
+        }
     }
-    authenticated = status;
 }
 
 void BotConnector::on_error_message(Value const &error)
