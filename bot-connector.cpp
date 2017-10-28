@@ -150,9 +150,9 @@ void BotConnector::on_auth_challenge(const char *challenge)
         new HashFilter(hmac,
             new Base64Encoder(
                 new StringSink(digest_str),
-		false // insertLineBreaks
-	    )
-	)
+                false // insertLineBreaks
+            )
+        )
     );
     Value digest(StringRef(digest_str.c_str(), digest_str.size()));
 
