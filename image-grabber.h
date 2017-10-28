@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <mutex>
 #include <condition_variable>
+#include <dlib/array2d.h>
 
 class ImageGrabber {
 public:
@@ -16,8 +17,9 @@ public:
         uint32_t width, height;
         uint32_t source_width, source_height;
         unsigned counter;
-        uint32_t *packed_rgbx;
+
         float *planar_float;
+        dlib::array2d<dlib::rgb_pixel> *dlib_img;
     };
 
     void wait_for_frame(unsigned prev_counter);

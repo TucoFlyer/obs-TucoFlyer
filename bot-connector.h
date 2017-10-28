@@ -11,6 +11,7 @@
 #include <functional>
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 class BotConnector {
 public:
@@ -22,6 +23,7 @@ public:
 
     void send(rapidjson::StringBuffer* buffer);
     bool is_authenticated();
+    bool poll_for_tracking_region_reset(double rect[4]);
 
     std::function<void(rapidjson::Value const&)> on_camera_overlay_scene;
 
@@ -46,6 +48,9 @@ private:
     std::mutex conn_path_mutex;
     std::string conn_path;
 
+    double init_tracked_rect[4];
+    std::atomic<bool> init_tracking_rect_flag;
+
     connection_hdl active_conn;
     void local_send(rapidjson::StringBuffer* buffer);
 
@@ -61,6 +66,7 @@ private:
     void on_auth_challenge(const char *challenge);
     void on_auth_status(bool status);
     void on_error_message(rapidjson::Value const &error);
+    void on_camera_init_tracked_region(rapidjson::Value const &rect);
 
     std::string read_connection_frontend_uri();
     std::string request_websocket_uri(std::string const &frontend_uri);

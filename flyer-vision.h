@@ -15,9 +15,12 @@ private:
     std::atomic<bool> request_exit;
     ImageGrabber *source;
     BotConnector *bot;
+
     std::thread yolo_thread;
+    std::thread tracker_thread;
 
     static std::vector<std::string> FlyerVision::load_names(const char* filename);
 
     void start_yolo();
+    void start_tracker();
 };

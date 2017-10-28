@@ -72,6 +72,15 @@ bool BotConnector::is_authenticated()
     return authenticated;
 }
 
+bool BotConnector::poll_for_tracking_region_reset(double rect[4])
+{
+    bool result = init_tracking_rect_flag.exchange(false);
+    if (result) {
+        memcpy(rect, init_tracked_rect, sizeof init_tracked_rect);
+    }
+    return result;
+}
+
 void BotConnector::local_send(StringBuffer* buffer)
 {
     if (active_conn.lock()) {
@@ -134,9 +143,29 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
 
 void BotConnector::on_stream_message(Value const &msg, double timestamp)
 {
-    Value const* obj = json_obj(msg, "CameraOverlayScene");
+    Value const* obj;
+
+    obj = json_obj(msg, "CameraOverlayScene");
     if (obj && obj->IsArray()) {
         on_camera_overlay_scene(*obj);
+    }
+
+    obj = json_obj(msg, "CameraInitTrackedRegion");
+    if (obj && obj->IsArray()) {
+        on_camera_init_tracked_region(*obj);
+    }
+}
+
+void BotConnector::on_camera_init_tracked_region(rapidjson::Value const &rect)
+{
+    if (rect.Size() == 4) {
+        for (unsigned i = 0; i < 4; i++) {
+            if (!rect[i].IsNumber()) {
+                return;
+            }
+            init_tracked_rect[i] = rect[i].GetDouble();
+        }
+        init_tracking_rect_flag.store(true);
     }
 }
 

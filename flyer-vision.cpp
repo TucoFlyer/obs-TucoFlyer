@@ -4,6 +4,8 @@
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
+#include <dlib/image_processing/scan_fhog_pyramid.h>
+#include <dlib/image_processing/correlation_tracker.h>
 
 using namespace rapidjson;
 
@@ -11,12 +13,14 @@ FlyerVision::FlyerVision(ImageGrabber *source, BotConnector *bot)
     : request_exit(false), source(source), bot(bot)
 {
     start_yolo();
+    start_tracker();
 }
 
 FlyerVision::~FlyerVision()
 {
     request_exit.store(true);
     yolo_thread.join();
+    tracker_thread.join();
 }
 
 std::vector<std::string> FlyerVision::load_names(const char* filename)
@@ -122,3 +126,74 @@ void FlyerVision::start_yolo()
         blog(LOG_INFO, "YOLO detector exiting");
     });
 }
+
+
+void FlyerVision::start_tracker()
+{
+    tracker_thread = std::thread([=] () {
+
+        ImageGrabber::Frame frame;
+        frame.counter = 0;
+
+        dlib::correlation_tracker tracker;
+        bool rect_is_empty = true;
+
+        blog(LOG_INFO, "Object tracker thread running");
+        
+        while (!request_exit.load()) {
+        
+            source->wait_for_frame(frame.counter);
+            frame = source->get_latest_frame();
+
+            double x_scale = 2.0 / frame.width;
+            double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
+            double y_scale = x_scale * aspect;
+            double center_x = frame.width / 2.0;
+            double center_y = frame.height / 2.0;
+
+            double init_rect[4];
+            if (bot->poll_for_tracking_region_reset(init_rect)) {
+                rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
+                if (!rect_is_empty) {
+                    dlib::drectangle rect(center_x + init_rect[0]/x_scale,
+                                          center_y + init_rect[1]/y_scale,
+                                          center_x + (init_rect[0] + init_rect[2])/x_scale,
+                                          center_y + (init_rect[1] + init_rect[3])/y_scale);
+                    tracker.start_track(*frame.dlib_img, rect);
+                }
+            } else if (!rect_is_empty) {
+                double psr = tracker.update(*frame.dlib_img);
+                dlib::drectangle rect = tracker.get_position();
+
+                Document d;
+                d.SetObject();
+
+                Value arr;
+                arr.SetArray();
+                arr.PushBack(Value((rect.left() - center_x) * x_scale), d.GetAllocator());
+                arr.PushBack(Value((rect.top() - center_y) * y_scale), d.GetAllocator());
+                arr.PushBack(Value(rect.width() * x_scale), d.GetAllocator());
+                arr.PushBack(Value(rect.height() * y_scale), d.GetAllocator());
+
+                Value obj;
+                obj.SetObject();
+                obj.AddMember("rect", arr, d.GetAllocator());
+                obj.AddMember("psr", Value(psr), d.GetAllocator());
+
+                Value cmd;
+                cmd.SetObject();
+                cmd.AddMember("CameraRegionTracking", obj, d.GetAllocator());
+                d.AddMember("Command", cmd, d.GetAllocator());
+
+                StringBuffer *buffer = new StringBuffer();
+                Writer<StringBuffer> writer(*buffer);
+                d.Accept(writer);
+                bot->send(buffer);
+            }
+        }
+
+        blog(LOG_INFO, "Object tracker thread exiting");
+    });
+}
+
+

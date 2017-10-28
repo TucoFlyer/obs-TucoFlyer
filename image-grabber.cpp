@@ -1,4 +1,5 @@
 #include "image-grabber.h"
+#include <dlib/image_processing.h>
 
 ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
     : latest_counter(0),
@@ -14,7 +15,7 @@ ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
         frame_fifo[i].source_height = 0;
         frame_fifo[i].width = width;
         frame_fifo[i].height = height;
-        frame_fifo[i].packed_rgbx = new uint32_t[width * height];
+        frame_fifo[i].dlib_img = new dlib::array2d<dlib::rgb_pixel>(height, width);
         frame_fifo[i].planar_float = new float[width * height * 3];
     }
 }
@@ -22,7 +23,7 @@ ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
 ImageGrabber::~ImageGrabber()
 {
     for (uint32_t i = 0; i < num_frames; i++) {
-        delete frame_fifo[i].packed_rgbx;
+        delete frame_fifo[i].dlib_img;
         delete frame_fifo[i].planar_float;
     }
     delete frame_fifo;
@@ -104,7 +105,9 @@ void ImageGrabber::render(obs_source_t *source)
                 uint8_t g8 = rgba[1];
                 uint8_t b8 = rgba[2];
 
-                frame->packed_rgbx[x + y*frame_width] = r8 || (g8 << 8) || (b8 << 16);
+        		dlib::rgb_pixel pix(r8, g8, b8);
+        		assign_pixel((*frame->dlib_img)[y][x], pix);
+
                 frame->planar_float[x + y*frame_width + 0*frame_area] = r8 / 255.0f;
                 frame->planar_float[x + y*frame_width + 1*frame_area] = g8 / 255.0f;
                 frame->planar_float[x + y*frame_width + 2*frame_area] = b8 / 255.0f;
