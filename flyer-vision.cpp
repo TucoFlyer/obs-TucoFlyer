@@ -81,7 +81,10 @@ void FlyerVision::start_yolo()
             double center_x = frame.width / 2.0;
             double center_y = frame.height / 2.0;
 
+            uint64_t timestamp_1 = os_gettime_ns();
             boxes = yolo.detect(yolo_img, 0.1);
+            uint64_t timestamp_2 = os_gettime_ns();
+
             if (bot->is_authenticated()) {
                 Document d;
                 d.SetObject();
@@ -115,6 +118,7 @@ void FlyerVision::start_yolo()
                 scene.SetObject();
                 scene.AddMember("objects", arr, d.GetAllocator());
                 scene.AddMember("frame", Value(frame.counter), d.GetAllocator());
+                scene.AddMember("detector_nsec", Value(timestamp_2 - timestamp_1), d.GetAllocator());
 
                 Value cmd;
                 cmd.SetObject();
@@ -169,7 +173,9 @@ void FlyerVision::start_tracker()
                 }
             } else if (!rect_is_empty) {
                 age++;
+                uint64_t timestamp_1 = os_gettime_ns();
                 double psr = tracker.update(*frame.dlib_img);
+                uint64_t timestamp_2 = os_gettime_ns();
                 dlib::drectangle rect = tracker.get_position();
 
                 Document d;
@@ -188,6 +194,7 @@ void FlyerVision::start_tracker()
                 obj.AddMember("frame", Value(frame.counter), d.GetAllocator());
                 obj.AddMember("age", Value(age), d.GetAllocator());
                 obj.AddMember("psr", Value(psr), d.GetAllocator());
+                obj.AddMember("tracker_nsec", Value(timestamp_2 - timestamp_1), d.GetAllocator());
 
                 Value cmd;
                 cmd.SetObject();
