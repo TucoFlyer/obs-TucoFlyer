@@ -140,6 +140,7 @@ void FlyerVision::start_tracker()
         ImageGrabber::Frame frame;
         frame.counter = 0;
 
+        unsigned age = 0;
         bool rect_is_empty = true;
         dlib::correlation_tracker tracker(5, 4);
 
@@ -164,8 +165,10 @@ void FlyerVision::start_tracker()
                                           center_x + (init_rect[0] + init_rect[2])/x_scale,
                                           center_y + (init_rect[1] + init_rect[3])/y_scale);
                     tracker.start_track(*frame.dlib_img, rect);
+                    age = 0;
                 }
             } else if (!rect_is_empty) {
+                age++;
                 double psr = tracker.update(*frame.dlib_img);
                 dlib::drectangle rect = tracker.get_position();
 
@@ -182,7 +185,8 @@ void FlyerVision::start_tracker()
                 Value obj;
                 obj.SetObject();
                 obj.AddMember("rect", arr, d.GetAllocator());
-                obj.AddMember("frame", frame.counter, d.GetAllocator());
+                obj.AddMember("frame", Value(frame.counter), d.GetAllocator());
+                obj.AddMember("age", Value(age), d.GetAllocator());
                 obj.AddMember("psr", Value(psr), d.GetAllocator());
 
                 Value cmd;
