@@ -30,7 +30,7 @@ void FlyerVisionTracker::start()
 
         unsigned age = 0;
         bool rect_is_empty = true;
-        correlation_tracker tracker(5, 4);
+        correlation_tracker tracker(7, 5);
 
         blog(LOG_INFO, "Object tracker thread running");    
         while (!request_exit.load()) {
@@ -100,11 +100,11 @@ void FlyerVisionTracker::start()
 }
 
 uint32_t TrackerImageFormatter::get_width() {
-    return 608;
+    return 128;
 }
 
 uint32_t TrackerImageFormatter::get_height() {
-    return 608;
+    return 128;
 }
 
 void* TrackerImageFormatter::new_image() {
