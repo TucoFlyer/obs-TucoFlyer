@@ -5,8 +5,10 @@ set(obs-TucoFlyer_SOURCES
 	json-util.h
 	flyer-camera-filter.cpp
 	flyer-camera-filter.h
-	flyer-vision.cpp
-	flyer-vision.h
+	flyer-vision-tracker.cpp
+	flyer-vision-tracker.h
+	flyer-vision-detector.cpp
+	flyer-vision-detector.h
 	image-grabber.cpp
 	image-grabber.h
 	overlay-drawing.cpp

@@ -1,33 +1,30 @@
 #include "image-grabber.h"
 #include <dlib/image_processing.h>
 
-ImageGrabber::ImageGrabber(uint32_t width, uint32_t height, uint32_t frames)
-    : latest_counter(0),
+ImageGrabber::ImageGrabber(ImageFormatter &fmt, uint32_t frames)
+    : fmt(fmt),
       num_frames(frames),
-      frame_fifo(0),
+      frame_fifo(new Frame[num_frames]),
       tick_flag(false),
+      readback_flag(false),
       texrender(0),
       stagesurface(0)
 {
-    frame_fifo = new Frame[num_frames];
     for (uint32_t i = 0; i < num_frames; i++) {
         frame_fifo[i].source_width = 0;
         frame_fifo[i].source_height = 0;
-        frame_fifo[i].width = width;
-        frame_fifo[i].height = height;
-        frame_fifo[i].dlib_img = new dlib::array2d<unsigned char>(height, width);
-        frame_fifo[i].planar_float = new float[width * height * 3];
+        frame_fifo[i].width = fmt.get_width();
+        frame_fifo[i].height = fmt.get_height();
+        frame_fifo[i].image = fmt.new_image();
     }
 }
 
 ImageGrabber::~ImageGrabber()
 {
     for (uint32_t i = 0; i < num_frames; i++) {
-        delete frame_fifo[i].dlib_img;
-        delete frame_fifo[i].planar_float;
+        fmt.delete_image(frame_fifo[i].image);
     }
     delete frame_fifo;
-
     if (texrender) {
         gs_texrender_destroy(texrender);
     }
@@ -58,13 +55,16 @@ void ImageGrabber::render(obs_source_t *source)
     Frame *frame = next_writable_frame();
     uint32_t frame_width = frame->width;
     uint32_t frame_height = frame->height;
-    uint32_t frame_area = frame_width * frame_height;
 
     int target_width = obs_source_get_base_width(target);
     int target_height = obs_source_get_base_height(target);
     if (!target_width || !target_height) {
         return;
     }
+
+    // Save our source's size, for coordinate transformation after running computer vision
+    frame->source_width = obs_source_get_base_width(source);
+    frame->source_height = obs_source_get_base_height(source);
 
     // Resource allocation
     if (texrender) {
@@ -90,38 +90,27 @@ void ImageGrabber::render(obs_source_t *source)
 
     // Must copy texture into a staging buffer to read it back
     gs_stage_texture(stagesurface, gs_texrender_get_texture(texrender));
+    readback_flag = true;
+}
 
-    uint8_t *ptr;
-    uint32_t linesize;
-    if (gs_stagesurface_map(stagesurface, &ptr, &linesize)) {
+void ImageGrabber::post_render()
+{
+    // Read back from the GPU some time after render(), for less stalling.
 
-        // Format conversions
-        for (uint32_t y = 0; y < frame_height; y++) {
-            for (uint32_t x = 0; x < frame_width; x++) {
+    if (readback_flag && stagesurface) {
+        readback_flag = false;
 
-                uint8_t *rgba = &ptr[x*4 + y*linesize];
+        Frame *frame = next_writable_frame();
+        uint8_t *ptr = 0;
+        uint32_t linesize = 0;
 
-                uint8_t r8 = rgba[0];
-                uint8_t g8 = rgba[1];
-                uint8_t b8 = rgba[2];
-
-        		dlib::rgb_pixel pix(r8, g8, b8);
-        		assign_pixel((*frame->dlib_img)[y][x], pix);
-
-                frame->planar_float[x + y*frame_width + 0*frame_area] = r8 / 255.0f;
-                frame->planar_float[x + y*frame_width + 1*frame_area] = g8 / 255.0f;
-                frame->planar_float[x + y*frame_width + 2*frame_area] = b8 / 255.0f;
-            }
+        if (gs_stagesurface_map(stagesurface, &ptr, &linesize)) {
+            fmt.rgba_to_image(frame->image, ptr, linesize);
+            gs_stagesurface_unmap(stagesurface);
         }
 
-        gs_stagesurface_unmap(stagesurface);
+        finish_writing_frame(frame);
     }
-
-    // Save our source's size, for coordinate transformation after running computer vision
-    frame->source_width = obs_source_get_base_width(source);
-    frame->source_height = obs_source_get_base_height(source);
-
-    finish_writing_frame(frame);
 }
 
 void ImageGrabber::wait_for_frame(unsigned prev_counter)

@@ -4,7 +4,8 @@
 #include <string>
 #include "bot-connector.h"
 #include "image-grabber.h"
-#include "flyer-vision.h"
+#include "flyer-vision-tracker.h"
+#include "flyer-vision-detector.h"
 #include "overlay-drawing.h"
 
 class FlyerCameraFilter {
@@ -21,8 +22,13 @@ public:
 private:
     obs_source_t        *source;
 
-    ImageGrabber        grabber;
-    FlyerVision         vision;
+    DetectorImageFormatter  fmt_detector;
+    TrackerImageFormatter   fmt_tracker;
+    ImageGrabber            grabber_detector;
+    ImageGrabber            grabber_tracker;
+    FlyerVisionDetector     vision_detector;
+    FlyerVisionTracker      vision_tracker;
+
     OverlayDrawing      overlay;
     BotConnector        bot;
 

@@ -12,7 +12,10 @@
 
 FlyerCameraFilter::FlyerCameraFilter(obs_source_t* source)
     : source(source),
-      vision(&grabber, &bot)
+      grabber_detector(fmt_detector),
+      grabber_tracker(fmt_tracker),
+      vision_detector(&grabber_detector, &bot),
+      vision_tracker(&grabber_tracker, &bot)
 {
     bot.on_camera_overlay_scene = std::bind(&OverlayDrawing::update_scene, &overlay, std::placeholders::_1);
 }
@@ -41,12 +44,14 @@ void FlyerCameraFilter::update(obs_data_t* settings)
 
 void FlyerCameraFilter::video_tick(float seconds)
 {
-    grabber.tick();
+    grabber_tracker.tick();
+    grabber_detector.tick();
 }
 
 void FlyerCameraFilter::video_render(gs_effect* effect)
 {
-    grabber.render(source);
+    grabber_tracker.render(source);
+    grabber_detector.render(source);
 
     obs_source_t *target = obs_filter_get_target(source);
     if (target) {
@@ -56,6 +61,9 @@ void FlyerCameraFilter::video_render(gs_effect* effect)
     }
 
     overlay.render(source);
+
+    grabber_tracker.post_render();
+    grabber_detector.post_render();
 }
 
 void FlyerCameraFilter::module_load() {
