@@ -160,18 +160,7 @@ void FlyerVision::start_tracker()
             double center_x = frame.width / 2.0;
             double center_y = frame.height / 2.0;
 
-            double init_rect[4];
-            if (bot->poll_for_tracking_region_reset(init_rect)) {
-                rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
-                if (!rect_is_empty) {
-                    dlib::drectangle rect(center_x + init_rect[0]/x_scale,
-                                          center_y + init_rect[1]/y_scale,
-                                          center_x + (init_rect[0] + init_rect[2])/x_scale,
-                                          center_y + (init_rect[1] + init_rect[3])/y_scale);
-                    tracker.start_track(*frame.dlib_img, rect);
-                    age = 0;
-                }
-            } else if (!rect_is_empty) {
+            if (!rect_is_empty) {
                 age++;
                 uint64_t timestamp_1 = os_gettime_ns();
                 double psr = tracker.update(*frame.dlib_img);
@@ -205,6 +194,19 @@ void FlyerVision::start_tracker()
                 Writer<StringBuffer> writer(*buffer);
                 d.Accept(writer);
                 bot->send(buffer);
+            }
+
+            double init_rect[4];
+            if (bot->poll_for_tracking_region_reset(init_rect)) {
+                rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
+                if (!rect_is_empty) {
+                    dlib::drectangle rect(center_x + init_rect[0]/x_scale,
+                                          center_y + init_rect[1]/y_scale,
+                                          center_x + (init_rect[0] + init_rect[2])/x_scale,
+                                          center_y + (init_rect[1] + init_rect[3])/y_scale);
+                    tracker.start_track(*frame.dlib_img, rect);
+                    age = 0;
+                }
             }
         }
 
