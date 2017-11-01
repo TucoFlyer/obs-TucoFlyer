@@ -14,19 +14,20 @@ set(obs-TucoFlyer_SOURCES
 	overlay-drawing.cpp
 	overlay-drawing.h
 	bot-connector.cpp
-	bot-connector.h
-	dlib/dlib/all/source.cpp)
+	bot-connector.h)
 
 add_library(obs-TucoFlyer MODULE
 	${obs-TucoFlyer_SOURCES})
 
 add_subdirectory(cryptopp)
-include_directories(cryptopp)
 
 find_package(Libcurl REQUIRED)
 include_directories(${LIBCURL_INCLUDE_DIRS})
 
-include_directories(${PROJECT_SOURCE_DIR}/dlib)
+set(DLIB_PNG_SUPPORT ON)
+add_subdirectory(dlib)
+# Local definition too, for the header files to see
+add_definitions (-DDLIB_PNG_SUPPORT)
 
 include_directories(${PROJECT_SOURCE_DIR}/rapidjson/include)
 
@@ -44,6 +45,7 @@ add_definitions (-D_WEBSOCKETPP_CPP11_TYPE_TRAITS_)
 target_link_libraries(obs-TucoFlyer
 	libobs
 	cryptopp
+	dlib
 	${LIBCURL_LIBRARIES}
 	${PROJECT_SOURCE_DIR}/yolo/yolo_cpp_dll.lib)
 

@@ -5,6 +5,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <dlib/image_processing/scan_fhog_pyramid.h>
 #include <dlib/image_processing/correlation_tracker.h>
+#include <dlib/image_saver/save_png.h>
 
 using namespace rapidjson;
 using namespace dlib;
@@ -55,6 +56,9 @@ void FlyerVisionTracker::thread_func()
             uint64_t timestamp_2 = os_gettime_ns();
             drectangle rect = tracker.get_position();
 
+            // The tracker can fail and give us NaN sometimes, which makes JSON serialize fail
+            if (!(psr >= 0.0)) psr = 0.0;
+
             Document d;
             d.SetObject();
 
@@ -68,9 +72,9 @@ void FlyerVisionTracker::thread_func()
             Value obj;
             obj.SetObject();
             obj.AddMember("rect", arr, d.GetAllocator());
-            obj.AddMember("frame", Value(frame.counter), d.GetAllocator());
-            obj.AddMember("age", Value(age), d.GetAllocator());
-            obj.AddMember("psr", Value(psr), d.GetAllocator());
+            obj.AddMember("frame", frame.counter, d.GetAllocator());
+            obj.AddMember("age", age, d.GetAllocator());
+            obj.AddMember("psr", psr, d.GetAllocator());
             obj.AddMember("tracker_nsec", Value(timestamp_2 - timestamp_1), d.GetAllocator());
 
             Value cmd;
@@ -92,6 +96,13 @@ void FlyerVisionTracker::thread_func()
                                       center_y + init_rect[1]/y_scale,
                                       center_x + (init_rect[0] + init_rect[2])/x_scale,
                                       center_y + (init_rect[1] + init_rect[3])/y_scale);
+
+#if 0
+                char name[200];
+                snprintf(name, sizeof name, "tracking-init-fr-%05d.png", frame.counter);
+                save_png(array, name);
+#endif
+
                 tracker.start_track(array, rect);
                 age = 0;
             }
@@ -102,19 +113,19 @@ void FlyerVisionTracker::thread_func()
 }
 
 uint32_t TrackerImageFormatter::get_width() {
-    return 64;
+    return 256;
 }
 
 uint32_t TrackerImageFormatter::get_height() {
-    return 64;
+    return 256;
 }
 
 void* TrackerImageFormatter::new_image() {
-    return static_cast<void*>(new array2d<rgb_pixel>(get_width(), get_height()));
+    return static_cast<void*>(new array2d<unsigned char>(get_width(), get_height()));
 }
 
 void TrackerImageFormatter::delete_image(void* frame) {
-    delete static_cast<array2d<rgb_pixel>*>(frame);
+    delete static_cast<array2d<unsigned char>*>(frame);
 }
 
 void TrackerImageFormatter::rgba_to_image(void* frame, const uint8_t* rgba, uint32_t linesize) {
@@ -130,8 +141,7 @@ void TrackerImageFormatter::rgba_to_image(void* frame, const uint8_t* rgba, uint
             uint8_t g8 = pix[1];
             uint8_t b8 = pix[2];
 
-            dlib::rgb_pixel dpix(r8, g8, b8);
-            assign_pixel(array[y][x], dpix);
+            assign_pixel(array[y][x], rgb_pixel(r8, g8, b8));
         }
     }
 }

@@ -3,9 +3,9 @@
 #include <ctype.h>
 #include <websocketpp/uri.hpp>
 #include <rapidjson/writer.h>
-#include <hmac.h>
-#include <sha.h>
-#include <base64.h>
+#include "cryptopp/hmac.h"
+#include "cryptopp/sha.h"
+#include "cryptopp/base64.h"
 #include "bot-connector.h"
 #include "json-util.h"
 
