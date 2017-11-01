@@ -23,88 +23,90 @@ FlyerVisionTracker::~FlyerVisionTracker()
 
 void FlyerVisionTracker::start()
 {
-    thread = std::thread([=] () {
+    thread = std::thread([=] () { thread_func(); });
+}
 
-        ImageGrabber::Frame frame;
-        frame.counter = 0;
+void FlyerVisionTracker::thread_func()
+{
+    ImageGrabber::Frame frame;
+    frame.counter = 0;
 
-        unsigned age = 0;
-        bool rect_is_empty = true;
-        correlation_tracker tracker(7, 5);
+    unsigned age = 0;
+    bool rect_is_empty = true;
+    correlation_tracker tracker;
 
-        blog(LOG_INFO, "Object tracker thread running");    
-        while (!request_exit.load()) {
-        
-            source->wait_for_frame(frame.counter);
-            frame = source->get_latest_frame();
-            array2d<unsigned char> &array = *static_cast<array2d<unsigned char>*>(frame.image);
+    blog(LOG_INFO, "Object tracker thread running");    
+    while (!request_exit.load()) {
+    
+        source->wait_for_frame(frame.counter);
+        frame = source->get_latest_frame();
+        array2d<unsigned char> &array = *static_cast<array2d<unsigned char>*>(frame.image);
 
-            double x_scale = 2.0 / frame.width;
-            double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
-            double y_scale = x_scale * aspect;
-            double center_x = frame.width / 2.0;
-            double center_y = frame.height / 2.0;
+        double x_scale = 2.0 / frame.width;
+        double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
+        double y_scale = x_scale * aspect;
+        double center_x = frame.width / 2.0;
+        double center_y = frame.height / 2.0;
 
-            if (!rect_is_empty) {
-                age++;
-                uint64_t timestamp_1 = os_gettime_ns();
-                double psr = tracker.update(array);
-                uint64_t timestamp_2 = os_gettime_ns();
-                drectangle rect = tracker.get_position();
+        if (!rect_is_empty) {
+            age++;
+            uint64_t timestamp_1 = os_gettime_ns();
+            double psr = tracker.update(array);
+            uint64_t timestamp_2 = os_gettime_ns();
+            drectangle rect = tracker.get_position();
 
-                Document d;
-                d.SetObject();
+            Document d;
+            d.SetObject();
 
-                Value arr;
-                arr.SetArray();
-                arr.PushBack(Value((rect.left() - center_x) * x_scale), d.GetAllocator());
-                arr.PushBack(Value((rect.top() - center_y) * y_scale), d.GetAllocator());
-                arr.PushBack(Value(rect.width() * x_scale), d.GetAllocator());
-                arr.PushBack(Value(rect.height() * y_scale), d.GetAllocator());
+            Value arr;
+            arr.SetArray();
+            arr.PushBack(Value((rect.left() - center_x) * x_scale), d.GetAllocator());
+            arr.PushBack(Value((rect.top() - center_y) * y_scale), d.GetAllocator());
+            arr.PushBack(Value(rect.width() * x_scale), d.GetAllocator());
+            arr.PushBack(Value(rect.height() * y_scale), d.GetAllocator());
 
-                Value obj;
-                obj.SetObject();
-                obj.AddMember("rect", arr, d.GetAllocator());
-                obj.AddMember("frame", Value(frame.counter), d.GetAllocator());
-                obj.AddMember("age", Value(age), d.GetAllocator());
-                obj.AddMember("psr", Value(psr), d.GetAllocator());
-                obj.AddMember("tracker_nsec", Value(timestamp_2 - timestamp_1), d.GetAllocator());
+            Value obj;
+            obj.SetObject();
+            obj.AddMember("rect", arr, d.GetAllocator());
+            obj.AddMember("frame", Value(frame.counter), d.GetAllocator());
+            obj.AddMember("age", Value(age), d.GetAllocator());
+            obj.AddMember("psr", Value(psr), d.GetAllocator());
+            obj.AddMember("tracker_nsec", Value(timestamp_2 - timestamp_1), d.GetAllocator());
 
-                Value cmd;
-                cmd.SetObject();
-                cmd.AddMember("CameraRegionTracking", obj, d.GetAllocator());
-                d.AddMember("Command", cmd, d.GetAllocator());
+            Value cmd;
+            cmd.SetObject();
+            cmd.AddMember("CameraRegionTracking", obj, d.GetAllocator());
+            d.AddMember("Command", cmd, d.GetAllocator());
 
-                StringBuffer *buffer = new StringBuffer();
-                Writer<StringBuffer> writer(*buffer);
-                d.Accept(writer);
-                bot->send(buffer);
-            }
-
-            double init_rect[4];
-            if (bot->poll_for_tracking_region_reset(init_rect)) {
-                rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
-                if (!rect_is_empty) {
-                    drectangle rect(center_x + init_rect[0]/x_scale,
-                                          center_y + init_rect[1]/y_scale,
-                                          center_x + (init_rect[0] + init_rect[2])/x_scale,
-                                          center_y + (init_rect[1] + init_rect[3])/y_scale);
-                    tracker.start_track(array, rect);
-                    age = 0;
-                }
-            }
+            StringBuffer *buffer = new StringBuffer();
+            Writer<StringBuffer> writer(*buffer);
+            d.Accept(writer);
+            bot->send(buffer);
         }
 
-        blog(LOG_INFO, "Object tracker thread exiting");
-    });
+        double init_rect[4];
+        if (bot->poll_for_tracking_region_reset(init_rect)) {
+            rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
+            if (!rect_is_empty) {
+                drectangle rect(center_x + init_rect[0]/x_scale,
+                                      center_y + init_rect[1]/y_scale,
+                                      center_x + (init_rect[0] + init_rect[2])/x_scale,
+                                      center_y + (init_rect[1] + init_rect[3])/y_scale);
+                tracker.start_track(array, rect);
+                age = 0;
+            }
+        }
+    }
+
+    blog(LOG_INFO, "Object tracker thread exiting");
 }
 
 uint32_t TrackerImageFormatter::get_width() {
-    return 128;
+    return 64;
 }
 
 uint32_t TrackerImageFormatter::get_height() {
-    return 128;
+    return 64;
 }
 
 void* TrackerImageFormatter::new_image() {

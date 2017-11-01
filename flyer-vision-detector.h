@@ -19,6 +19,7 @@ private:
 
     static std::vector<std::string> load_names(const char* filename);
     void start();
+    void thread_func();
 };
 
 class DetectorImageFormatter : public ImageFormatter {

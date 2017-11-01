@@ -18,6 +18,7 @@ private:
     std::thread thread;
 
     void start();
+    void thread_func();
 };
 
 class TrackerImageFormatter : public ImageFormatter {
