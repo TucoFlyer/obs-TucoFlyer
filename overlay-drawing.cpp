@@ -151,8 +151,6 @@ void OverlayDrawing::render(obs_source_t *source)
         return;
     }
 
-    gs_technique_t *tech = gs_effect_get_technique(effect, "Draw");
-
     gs_vertexbuffer_flush(vb);
     gs_load_vertexbuffer(vb);
     gs_load_indexbuffer(NULL);
@@ -162,25 +160,22 @@ void OverlayDrawing::render(obs_source_t *source)
     gs_blend_function(GS_BLEND_SRCALPHA, GS_BLEND_INVSRCALPHA);
     gs_enable_color(true, true, true, false);
 
-    gs_technique_begin(tech);
-    gs_technique_begin_pass(tech, 0);
+    while (gs_effect_loop(effect, "Draw")) {
 
-    gs_effect_set_texture(image_param, texture_img.texture);
+        gs_effect_set_texture(image_param, texture_img.texture);
 
-    vec2 image_size;
-    vec2_set(&image_size, texture_img.cx, texture_img.cy);
-    gs_effect_set_vec2(image_size_param, &image_size);
+        vec2 image_size;
+        vec2_set(&image_size, texture_img.cx, texture_img.cy);
+        gs_effect_set_vec2(image_size_param, &image_size);
 
-    vec2 source_size;
-    vec2_set(&source_size,
-        obs_source_get_width(source),
-        obs_source_get_height(source));
-    gs_effect_set_vec2(source_size_param, &source_size);
+        vec2 source_size;
+        vec2_set(&source_size,
+            obs_source_get_width(source),
+            obs_source_get_height(source));
+        gs_effect_set_vec2(source_size_param, &source_size);
 
-    gs_draw(GS_TRIS, 0, draw_len);
-
-    gs_technique_end_pass(tech);
-    gs_technique_end(tech);
+        gs_draw(GS_TRIS, 0, draw_len);
+    }
 
     gs_enable_color(true, true, true, true);
     gs_blend_state_pop();

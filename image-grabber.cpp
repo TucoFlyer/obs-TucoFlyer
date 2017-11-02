@@ -8,7 +8,8 @@ ImageGrabber::ImageGrabber(ImageFormatter &fmt, uint32_t frames)
       frame_fifo(new Frame[num_frames]),
       tick_flag(false),
       readback_flag(false),
-      texrender(0),
+      texrender_4x(0),
+      texrender_final(0),
       stagesurface(0)
 {
     for (uint32_t i = 0; i < num_frames; i++) {
@@ -18,20 +19,36 @@ ImageGrabber::ImageGrabber(ImageFormatter &fmt, uint32_t frames)
         frame_fifo[i].height = fmt.get_height();
         frame_fifo[i].image = fmt.new_image();
     }
+
+    obs_enter_graphics();
+
+    effect = gs_effect_create_from_file(obs_module_file("scale_4x.effect"), NULL);
+    image_param = gs_effect_get_param_by_name(effect, "image");
+    image_size_param = gs_effect_get_param_by_name(effect, "image_size");
+
+    obs_leave_graphics();
 }
 
 ImageGrabber::~ImageGrabber()
 {
+    obs_enter_graphics();
+
     for (uint32_t i = 0; i < num_frames; i++) {
         fmt.delete_image(frame_fifo[i].image);
     }
     delete frame_fifo;
-    if (texrender) {
-        gs_texrender_destroy(texrender);
+    gs_effect_destroy(effect);
+    if (texrender_4x) {
+        gs_texrender_destroy(texrender_4x);
+    }
+    if (texrender_final) {
+        gs_texrender_destroy(texrender_final);
     }
     if (stagesurface) {
         gs_stagesurface_destroy(stagesurface);
     }
+
+    obs_leave_graphics();
 }
 
 void ImageGrabber::tick()
@@ -68,17 +85,19 @@ void ImageGrabber::render(obs_source_t *source)
     frame->source_height = obs_source_get_base_height(source);
 
     // Resource allocation
-    if (texrender) {
-        gs_texrender_reset(texrender);
+    if (texrender_final) {
+        gs_texrender_reset(texrender_4x);
+        gs_texrender_reset(texrender_final);
     } else {
-        texrender = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
+        texrender_4x = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
+        texrender_final = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
     }
     if (!stagesurface) {
         stagesurface = gs_stagesurface_create(frame_width, frame_height, GS_RGBA);
     }
 
-    // Render next target into a temporary texture
-    if (gs_texrender_begin(texrender, frame_width, frame_height)) {
+    // Render source into one render target at 4x final size
+    if (gs_texrender_begin(texrender_4x, frame_width * 4, frame_height * 4)) {
         struct vec4 clear_color;
         vec4_zero(&clear_color);
         gs_clear(GS_CLEAR_COLOR, &clear_color, 0.0f, 0);
@@ -86,11 +105,34 @@ void ImageGrabber::render(obs_source_t *source)
 
         obs_source_video_render(target);
 
-        gs_texrender_end(texrender);
+        gs_texrender_end(texrender_4x);
     }
 
-    // Must copy texture into a staging buffer to read it back
-    gs_stage_texture(stagesurface, gs_texrender_get_texture(texrender));
+    // Scale from the 4x texture to the final size with a shader
+    if (gs_texrender_begin(texrender_final, frame_width, frame_height)) {
+
+        gs_ortho(0.0f, (float)frame_width, 0.0f, (float)frame_height, -100.0, 100.0);
+
+        gs_blend_state_push();
+        gs_enable_blending(true);
+        gs_blend_function(GS_BLEND_ONE, GS_BLEND_ZERO);
+
+        while (gs_effect_loop(effect, "Draw")) {
+            gs_effect_set_texture(image_param, gs_texrender_get_texture(texrender_4x));
+
+            vec2 image_size;
+            vec2_set(&image_size, frame_width, frame_height);
+            gs_effect_set_vec2(image_size_param, &image_size);
+
+            gs_draw_sprite(gs_texrender_get_texture(texrender_4x), false, frame_width, frame_height);
+        }
+
+        gs_blend_state_pop();
+        gs_texrender_end(texrender_final);
+    }
+
+    // Must copy texture into a staging buffer to read it back later
+    gs_stage_texture(stagesurface, gs_texrender_get_texture(texrender_final));
     readback_flag = true;
 }
 

@@ -34,14 +34,14 @@ void FlyerVisionTracker::thread_func()
 
     unsigned age = 0;
     bool rect_is_empty = true;
-    correlation_tracker tracker(6, 5);
+    correlation_tracker tracker(6, 4);
 
     blog(LOG_INFO, "Object tracker thread running");    
     while (!request_exit.load()) {
     
         source->wait_for_frame(frame.counter);
         frame = source->get_latest_frame();
-        array2d<unsigned char> &array = *static_cast<array2d<unsigned char>*>(frame.image);
+        array2d<rgb_pixel> &array = *static_cast<array2d<rgb_pixel>*>(frame.image);
 
         double x_scale = 2.0 / frame.width;
         double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
@@ -58,7 +58,7 @@ void FlyerVisionTracker::thread_func()
 
             age++;
             uint64_t timestamp_1 = os_gettime_ns();
-            double psr = tracker.update(array);
+            double psr = tracker.update_noscale(array);
             uint64_t timestamp_2 = os_gettime_ns();
             drectangle rect = tracker.get_position();
 
@@ -127,15 +127,15 @@ uint32_t TrackerImageFormatter::get_height() {
 }
 
 void* TrackerImageFormatter::new_image() {
-    return static_cast<void*>(new array2d<unsigned char>(get_width(), get_height()));
+    return static_cast<void*>(new array2d<rgb_pixel>(get_width(), get_height()));
 }
 
 void TrackerImageFormatter::delete_image(void* frame) {
-    delete static_cast<array2d<unsigned char>*>(frame);
+    delete static_cast<array2d<rgb_pixel>*>(frame);
 }
 
 void TrackerImageFormatter::rgba_to_image(void* frame, const uint8_t* rgba, uint32_t linesize) {
-    array2d<unsigned char> &array = *static_cast<array2d<unsigned char>*>(frame);
+    array2d<rgb_pixel> &array = *static_cast<array2d<rgb_pixel>*>(frame);
     uint32_t frame_width = get_width();
     uint32_t frame_height = get_height();
 
