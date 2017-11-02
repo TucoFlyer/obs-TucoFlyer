@@ -24,7 +24,14 @@ add_subdirectory(cryptopp)
 find_package(Libcurl REQUIRED)
 include_directories(${LIBCURL_INCLUDE_DIRS})
 
+# Built-in FFT gives slow tracker performance, use Intel's Math Kernel Library
+set(DLIB_USE_BLAS ON)
+set(DLIB_USE_LAPACK ON)
+set(DLIB_USE_MKL_FFT ON)
+
+# For debugging the tracker code, writing PNG frames
 set(DLIB_PNG_SUPPORT ON)
+
 add_subdirectory(dlib)
 # Local definition too, for the header files to see
 add_definitions (-DDLIB_PNG_SUPPORT)

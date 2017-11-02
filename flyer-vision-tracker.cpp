@@ -34,7 +34,7 @@ void FlyerVisionTracker::thread_func()
 
     unsigned age = 0;
     bool rect_is_empty = true;
-    correlation_tracker tracker;
+    correlation_tracker tracker(6, 5);
 
     blog(LOG_INFO, "Object tracker thread running");    
     while (!request_exit.load()) {
@@ -50,6 +50,12 @@ void FlyerVisionTracker::thread_func()
         double center_y = frame.height / 2.0;
 
         if (!rect_is_empty) {
+#if 0
+            char name[200];
+            snprintf(name, sizeof name, "fr-%08u-cont.png", (unsigned)frame.counter);
+            save_png(array, name);
+#endif
+
             age++;
             uint64_t timestamp_1 = os_gettime_ns();
             double psr = tracker.update(array);
@@ -99,7 +105,7 @@ void FlyerVisionTracker::thread_func()
 
 #if 0
                 char name[200];
-                snprintf(name, sizeof name, "tracking-init-fr-%05d.png", frame.counter);
+                snprintf(name, sizeof name, "fr-%08u-init.png", (unsigned)frame.counter);
                 save_png(array, name);
 #endif
 
