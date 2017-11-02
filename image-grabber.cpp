@@ -4,6 +4,7 @@
 ImageGrabber::ImageGrabber(ImageFormatter &fmt, uint32_t frames)
     : fmt(fmt),
       num_frames(frames),
+      latest_counter(0),
       frame_fifo(new Frame[num_frames]),
       tick_flag(false),
       readback_flag(false),
