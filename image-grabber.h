@@ -40,7 +40,7 @@ private:
     uint32_t num_frames;
     Frame *frame_fifo;
     bool tick_flag;
-    bool readback_flag; 
+    bool readback_flag;
 
     gs_texrender_t *texrender_4x;
     gs_texrender_t *texrender_final;

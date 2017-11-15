@@ -27,27 +27,53 @@ void FlyerVisionTracker::start()
     thread = std::thread([=] () { thread_func(); });
 }
 
+template <typename Allocator>
+static Value drectangle_to_value(ImageGrabber::Frame &frame, drectangle &drect, Allocator &alloc) {
+    double x_scale = 2.0 / frame.width;
+    double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
+    double y_scale = x_scale * aspect;
+    double center_x = frame.width / 2.0;
+    double center_y = frame.height / 2.0;
+
+    Value arr;
+    arr.SetArray();
+    arr.PushBack(Value((drect.left() - center_x) * x_scale), alloc);
+    arr.PushBack(Value((drect.top() - center_y) * y_scale), alloc);
+    arr.PushBack(Value(drect.width() * x_scale), alloc);
+    arr.PushBack(Value(drect.height() * y_scale), alloc);
+    return arr;
+}
+
+static drectangle drectangle_from_vec4(ImageGrabber::Frame &frame, double vec[4]) {
+    double x_scale = 2.0 / frame.width;
+    double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
+    double y_scale = x_scale * aspect;
+    double center_x = frame.width / 2.0;
+    double center_y = frame.height / 2.0;
+
+    drectangle rect(center_x + vec[0]/x_scale,
+                    center_y + vec[1]/y_scale,
+                    center_x + (vec[0] + vec[2])/x_scale,
+                    center_y + (vec[1] + vec[3])/y_scale);
+    return rect;
+}
+
 void FlyerVisionTracker::thread_func()
 {
     ImageGrabber::Frame frame;
     frame.counter = 0;
 
+    drectangle previous_rect = {};
     unsigned age = 0;
     bool rect_is_empty = true;
     correlation_tracker tracker(6, 4);
 
-    blog(LOG_INFO, "Object tracker thread running");    
+    blog(LOG_INFO, "Object tracker thread running");
     while (!request_exit.load()) {
-    
+
         source->wait_for_frame(frame.counter);
         frame = source->get_latest_frame();
         array2d<rgb_pixel> &array = *static_cast<array2d<rgb_pixel>*>(frame.image);
-
-        double x_scale = 2.0 / frame.width;
-        double aspect = frame.source_width ? frame.source_height / (double) frame.source_width : 0.0;
-        double y_scale = x_scale * aspect;
-        double center_x = frame.width / 2.0;
-        double center_y = frame.height / 2.0;
 
         if (!rect_is_empty) {
 #if 0
@@ -68,16 +94,10 @@ void FlyerVisionTracker::thread_func()
             Document d;
             d.SetObject();
 
-            Value arr;
-            arr.SetArray();
-            arr.PushBack(Value((rect.left() - center_x) * x_scale), d.GetAllocator());
-            arr.PushBack(Value((rect.top() - center_y) * y_scale), d.GetAllocator());
-            arr.PushBack(Value(rect.width() * x_scale), d.GetAllocator());
-            arr.PushBack(Value(rect.height() * y_scale), d.GetAllocator());
-
             Value obj;
             obj.SetObject();
-            obj.AddMember("rect", arr, d.GetAllocator());
+            obj.AddMember("rect", drectangle_to_value(frame, rect, d.GetAllocator()), d.GetAllocator());
+            obj.AddMember("previous_rect", drectangle_to_value(frame, previous_rect, d.GetAllocator()), d.GetAllocator());
             obj.AddMember("frame", frame.counter, d.GetAllocator());
             obj.AddMember("age", age, d.GetAllocator());
             obj.AddMember("psr", psr, d.GetAllocator());
@@ -92,25 +112,23 @@ void FlyerVisionTracker::thread_func()
             Writer<StringBuffer> writer(*buffer);
             d.Accept(writer);
             bot->send(buffer);
+
+            previous_rect = rect;
         }
 
         double init_rect[4];
         if (bot->poll_for_tracking_region_reset(init_rect)) {
             rect_is_empty = init_rect[2] <= 0.0 || init_rect[3] <= 0.0;
             if (!rect_is_empty) {
-                drectangle rect(center_x + init_rect[0]/x_scale,
-                                      center_y + init_rect[1]/y_scale,
-                                      center_x + (init_rect[0] + init_rect[2])/x_scale,
-                                      center_y + (init_rect[1] + init_rect[3])/y_scale);
-
 #if 0
                 char name[200];
                 snprintf(name, sizeof name, "fr-%08u-init.png", (unsigned)frame.counter);
                 save_png(array, name);
 #endif
-
+                drectangle rect = drectangle_from_vec4(frame, init_rect);
                 tracker.start_track(array, rect);
                 age = 0;
+                previous_rect = rect;
             }
         }
     }
