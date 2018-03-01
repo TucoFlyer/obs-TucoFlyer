@@ -69,7 +69,10 @@ void FlyerVisionTracker::thread_func()
     correlation_tracker tracker(6, 4);
 
     blog(LOG_INFO, "Object tracker thread running");
-    while (!request_exit.load() && source->wait_for_frame(frame.counter)) {
+    while (!request_exit.load()) {
+        if (!source->wait_for_frame(frame.counter)) {
+            continue;
+        }
         frame = source->get_latest_frame();
         array2d<rgb_pixel> &array = *static_cast<array2d<rgb_pixel>*>(frame.image);
 
