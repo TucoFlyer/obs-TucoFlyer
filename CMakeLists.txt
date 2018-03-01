@@ -36,6 +36,8 @@ add_subdirectory(dlib)
 # Local definition too, for the header files to see
 add_definitions (-DDLIB_PNG_SUPPORT)
 
+include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/UI/obs-frontend-api")
+
 include_directories(${PROJECT_SOURCE_DIR}/rapidjson/include)
 
 include_directories(${PROJECT_SOURCE_DIR}/asio/asio/include)
@@ -51,6 +53,7 @@ add_definitions (-D_WEBSOCKETPP_CPP11_TYPE_TRAITS_)
 
 target_link_libraries(obs-TucoFlyer
 	libobs
+	obs-frontend-api
 	cryptopp
 	dlib
 	${LIBCURL_LIBRARIES}

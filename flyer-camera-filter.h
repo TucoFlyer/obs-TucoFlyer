@@ -29,9 +29,16 @@ private:
     FlyerVisionDetector     vision_detector;
     FlyerVisionTracker      vision_tracker;
 
+    float                   camera_output_status_timer;
+    double                  streaming_active_timer;
+    double                  recording_active_timer;
+
     OverlayDrawing      overlay;
     BotConnector        bot;
 
     std::string         connection_file_path;
     std::string         overlay_texture_path;
+
+    void camera_output_enable(rapidjson::Value const &scene);
+    void send_camera_output_status();
 };

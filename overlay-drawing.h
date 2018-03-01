@@ -30,7 +30,7 @@ private:
     gs_eparam_t *image_param;
     gs_eparam_t *image_size_param;
     gs_eparam_t *source_size_param;
-    
+
     static constexpr uint32_t num_buffers = 2;
     std::atomic<uint32_t> draw_buffer;
     struct {

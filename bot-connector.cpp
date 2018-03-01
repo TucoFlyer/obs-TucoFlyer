@@ -154,6 +154,15 @@ void BotConnector::on_stream_message(Value const &msg, double timestamp)
     if (obj && obj->IsArray()) {
         on_camera_init_tracked_region(*obj);
     }
+
+    Value const* cmd = json_obj(msg, "Command");
+    if (cmd && cmd->IsObject()) {
+
+        obj = json_obj(*cmd, "CameraOutputEnable");
+        if (obj && obj->IsArray()) {
+            on_camera_output_enable(*obj);
+        }
+    }
 }
 
 void BotConnector::on_camera_init_tracked_region(rapidjson::Value const &rect)
@@ -175,7 +184,7 @@ void BotConnector::on_auth_challenge(const char *challenge)
 
     HMAC<SHA512> hmac((const byte*)auth_key.c_str(), auth_key.size());
     std::string digest_str;
-    StringSource s(challenge, true, 
+    StringSource s(challenge, true,
         new HashFilter(hmac,
             new Base64Encoder(
                 new StringSink(digest_str),
@@ -221,7 +230,7 @@ void BotConnector::on_error_message(Value const &error)
 void BotConnector::async_reconnect()
 {
     conn_timer->expires_from_now(std::chrono::seconds(1));
-    conn_timer->async_wait(bind(&BotConnector::reconnect_handler, this));   
+    conn_timer->async_wait(bind(&BotConnector::reconnect_handler, this));
 }
 
 void BotConnector::reconnect_handler()
@@ -292,7 +301,7 @@ std::string BotConnector::read_connection_frontend_uri()
     }
 
     char *line = fgets(buffer, sizeof buffer, f);
-    if (line) { 
+    if (line) {
         rtrim(line);
         result = line;
     } else {

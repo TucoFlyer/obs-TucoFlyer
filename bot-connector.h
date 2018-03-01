@@ -26,6 +26,7 @@ public:
     bool poll_for_tracking_region_reset(double rect[4]);
 
     std::function<void(rapidjson::Value const&)> on_camera_overlay_scene;
+    std::function<void(rapidjson::Value const&)> on_camera_output_enable;
 
 private:
     typedef websocketpp::client<websocketpp::config::asio_client> client_t;

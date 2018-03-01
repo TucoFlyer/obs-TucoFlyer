@@ -57,9 +57,9 @@ void FlyerVisionDetector::thread_func()
                   obs_module_file("yolo.weights"));
 
     blog(LOG_INFO, "YOLO detector running");
-    
+
     while (!request_exit.load()) {
-    
+
         source->wait_for_frame(frame.counter);
         frame = source->get_latest_frame();
 
