@@ -1,6 +1,8 @@
 #include "image-grabber.h"
 #include <dlib/image_processing.h>
 
+using namespace std::chrono_literals;
+
 ImageGrabber::ImageGrabber(ImageFormatter &fmt, uint32_t frames)
     : fmt(fmt),
       num_frames(frames),
@@ -156,16 +158,16 @@ void ImageGrabber::post_render()
     }
 }
 
-void ImageGrabber::wait_for_frame(unsigned prev_counter)
+bool ImageGrabber::wait_for_frame(unsigned prev_counter)
 {
     std::unique_lock<std::mutex> lock(latest_counter_mutex);
-    latest_counter_cond.wait(lock, [=] { return latest_counter != prev_counter; });
+    return latest_counter_cond.wait_for(lock, 40ms, [=] { return latest_counter != prev_counter; });
 }
 
 ImageGrabber::Frame ImageGrabber::get_latest_frame()
 {
     std::unique_lock<std::mutex> lock(latest_counter_mutex);
-    return frame_fifo[latest_counter % num_frames];    
+    return frame_fifo[latest_counter % num_frames];
 }
 
 ImageGrabber::Frame *ImageGrabber::next_writable_frame()

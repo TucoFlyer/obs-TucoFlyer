@@ -36,6 +36,7 @@ private:
 
     bool authenticated;
     bool connected;
+    bool can_send;
     std::thread thread;
     client_t *thread_client;
     CURL *thread_curl;

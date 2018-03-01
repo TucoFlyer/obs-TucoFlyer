@@ -21,7 +21,8 @@ using lib::bind;
 
 BotConnector::BotConnector()
     : authenticated(false),
-      connected(false)
+      connected(false),
+      can_send(false)
 {
     thread_client = new client_t;
     thread_client->init_asio();
@@ -40,6 +41,7 @@ BotConnector::BotConnector()
 
 BotConnector::~BotConnector()
 {
+    can_send = false;
     thread_client->get_io_service().stop();
     thread.join();
     delete conn_timer;
@@ -62,9 +64,11 @@ std::string BotConnector::get_connection_file_path()
 
 void BotConnector::send(StringBuffer* buffer)
 {
-    thread_client->get_io_service().dispatch([=] () {
-        local_send(buffer);
-    });
+    if (can_send) {
+        thread_client->get_io_service().dispatch([=] () {
+            local_send(buffer);
+        });
+    }
 }
 
 bool BotConnector::is_authenticated()
@@ -94,11 +98,13 @@ void BotConnector::local_send(StringBuffer* buffer)
 void BotConnector::on_socket_open(connection_hdl conn)
 {
     active_conn = conn;
+    can_send = true;
 }
 
 void BotConnector::on_socket_close(connection_hdl conn)
 {
     active_conn = connection_hdl();
+    can_send = false;
     async_reconnect();
 }
 

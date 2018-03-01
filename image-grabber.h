@@ -29,7 +29,7 @@ public:
         void *image;
     };
 
-    void wait_for_frame(unsigned prev_counter);
+    bool wait_for_frame(unsigned prev_counter);
     Frame get_latest_frame();
 
 private:
