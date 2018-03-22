@@ -99,6 +99,7 @@ void BotConnector::on_socket_open(connection_hdl conn)
 {
     active_conn = conn;
     can_send = true;
+    send_subscription();
 }
 
 void BotConnector::on_socket_close(connection_hdl conn)
@@ -147,9 +148,31 @@ void BotConnector::on_socket_message(connection_hdl conn, message_ptr msg)
     }
 }
 
+void BotConnector::send_subscription()
+{
+    Document d;
+    d.SetObject();
+
+    Value message_list;
+    message_list.SetArray();
+
+    message_list.PushBack("ConfigIsCurrent", d.GetAllocator());
+    message_list.PushBack("Command", d.GetAllocator());
+    message_list.PushBack("CameraOverlayScene", d.GetAllocator());
+    message_list.PushBack("CameraInitTrackedRegion", d.GetAllocator());
+
+    d.AddMember("Subscription", message_list, d.GetAllocator());
+
+    StringBuffer *buffer = new StringBuffer();
+    Writer<StringBuffer> writer(*buffer);
+    d.Accept(writer);
+
+    local_send(buffer);
+}
+
 void BotConnector::on_stream_message(Value const &msg, double timestamp)
 {
-    Value const* obj;
+    Value const* obj;                                                                
 
     obj = json_obj(msg, "CameraOverlayScene");
     if (obj && obj->IsArray()) {

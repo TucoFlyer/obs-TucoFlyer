@@ -60,6 +60,7 @@ private:
     void async_reconnect();
     void reconnect_handler();
     bool try_reconnect();
+    void send_subscription();
 
     void on_socket_open(connection_hdl conn);
     void on_socket_close(connection_hdl conn);
